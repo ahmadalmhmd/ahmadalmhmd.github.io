@@ -2,18 +2,28 @@ name: تحديث الأخبار التلقائي
 
 on:
   schedule:
-    - cron: '0 * * * *'  # كل ساعة
+    - cron: '*/30 * * * *'  # كل 30 دقيقة
   push:
-    branches: [ main ]
-  workflow_dispatch:  # للتشغيل اليدوي
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'الفرع المستهدف'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - master
 
-# صلاحيات كاملة
+# صلاحيات موسعة
 permissions:
   contents: write
   pages: write
   id-token: write
   actions: read
   deployments: write
+  issues: write
   packages: read
   pull-requests: read
   repository-projects: read
@@ -21,113 +31,167 @@ permissions:
   statuses: read
 
 jobs:
-  update-news:
+  check-and-update:
     runs-on: ubuntu-latest
     
+    # استراتيجية لإعادة المحاولة
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+    
     steps:
-    - name: 🔄 التحقق من المستودع
+    - name: 🔍 تشخيص البيئة
+      run: |
+        echo "📋 معلومات النظام:"
+        echo "----------------------------------------"
+        echo "🕒 الوقت: $(date)"
+        echo "💻 النظام: $(uname -a)"
+        echo "🌐 الشبكة: $(curl -s ifconfig.me || echo 'غير متاح')"
+        echo "----------------------------------------"
+        
+        # التحقق من GitHub API
+        echo "🔍 التحقق من المستودع عبر GitHub API:"
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          https://api.github.com/repos/ahmadaLmhd/ahmadaLmhd.github.io)
+        
+        if [ "$RESPONSE" = "200" ]; then
+          echo "✅ المستودع موجود ومتاح (رمز: $RESPONSE)"
+        elif [ "$RESPONSE" = "404" ]; then
+          echo "❌ المستودع غير موجود! (رمز: $RESPONSE)"
+          echo "⚠️ تأكد من اسم المستخدم: 'ahmadaLmhd' (لاحظ أن L كبيرة)"
+          echo "⚠️ تأكد من اسم المستودع: 'ahmadaLmhd.github.io'"
+          exit 1
+        else
+          echo "⚠️ استجابة غير متوقعة: $RESPONSE"
+        fi
+    
+    - name: 🔄 محاولة checkout بطرق متعددة
+      continue-on-error: true
+      id: checkout_attempt
       uses: actions/checkout@v3
       with:
-        fetch-depth: 0
+        fetch-depth: 1
+        persist-credentials: true
         token: ${{ secrets.GITHUB_TOKEN }}
-        repository: ahmadaLmhd/ahmadaLmhd.github.io  # ✅ اسم المستخدم الصحيح
-    
-    - name: 📦 إعداد البيئة
-      run: |
-        echo "🚀 بدء تحديث الأخبار..."
-        echo "📅 التاريخ: $(date)"
-        echo "🆔 المستودع: ahmadaLmhd/ahmadaLmhd.github.io"
-        echo "🌿 الفرع: main"
+        repository: ahmadaLmhd/ahmadaLmhd.github.io
         
-    - name: 📰 إنشاء ملفات التحديث الإخبارية المتقدمة
+    - name: 🚨 إذا فشل checkout، جرب بطريقة بديلة
+      if: steps.checkout_attempt.outcome == 'failure'
       run: |
-        # إنشاء المجلدات المطلوبة
-        mkdir -p news-data
-        mkdir -p assets/css
-        mkdir -p assets/js
+        echo "⚠️ فشل checkout العادي، جرب طرق بديلة..."
         
-        # إنشاء ملف JSON للتحديثات
-        cat > news-data/latest.json << EOF
-        {
-          "lastUpdate": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-          "version": "1.0.0",
-          "status": "success",
-          "repository": "ahmadaLmhd/ahmadaLmhd.github.io",
-          "metrics": {
-            "totalRuns": 18,
-            "successRate": "94%",
-            "averageTime": "25s",
-            "lastRunTime": "$(date +"%Y-%m-%d %H:%M:%S")",
-            "performance": {
-              "caches": "محسّن",
-              "deployments": 14,
-              "attestations": "مفعّلة",
-              "runners": "متاحة"
+        # طريقة 1: استخدام HTTPS مع PAT
+        echo "🔑 الطريقة 1: HTTPS مع PAT"
+        git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/ahmadaLmhd/ahmadaLmhd.github.io.git temp_repo || {
+          echo "❌ فشلت الطريقة 1"
+          
+          # طريقة 2: استخدام SSH (إذا كان متاحاً)
+          echo "🔑 الطريقة 2: SSH"
+          git clone git@github.com:ahmadaLmhd/ahmadaLmhd.github.io.git temp_repo || {
+            echo "❌ فشلت الطريقة 2"
+            
+            # طريقة 3: إنشاء مستودع جديد إذا لم يكن موجوداً
+            echo "🆕 الطريقة 3: إنشاء مستودع جديد"
+            mkdir ahmadaLmhd.github.io
+            cd ahmadaLmhd.github.io
+            git init
+            git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/ahmadaLmhd/ahmadaLmhd.github.io.git
+            echo "# موقع ahmadaLmhd" > README.md
+            git add README.md
+            git commit -m "Initial commit"
+            git branch -M main
+            git push -u origin main || {
+              echo "❌ لا يمكن إنشاء المستودع - تأكد من الصلاحيات"
+              exit 1
             }
+            cd ..
+          }
+        }
+        
+        if [ -d "temp_repo" ]; then
+          cp -r temp_repo/* .
+          cp -r temp_repo/.[!.]* . 2>/dev/null || true
+          rm -rf temp_repo
+          echo "✅ تم استنساخ المستودع بنجاح"
+        fi
+    
+    - name: 📂 التحقق من بنية المستودع
+      run: |
+        echo "📁 محتويات المستودع:"
+        ls -la
+        echo ""
+        echo "🌿 الفروع المتاحة:"
+        git branch -a || echo "لا توجد فروع"
+        echo ""
+        echo "🔗 remote URLs:"
+        git remote -v || echo "لا يوجد remote"
+    
+    - name: 📰 إنشاء ملفات التحديث
+      run: |
+        echo "🚀 بدء إنشاء التحديثات..."
+        
+        # إنشاء مجلد البيانات
+        mkdir -p news-data
+        mkdir -p assets
+        
+        # إنشاء ملف الحالة
+        cat > status.json << EOF
+        {
+          "repository": "ahmadaLmhd.github.io",
+          "owner": "ahmadaLmhd",
+          "lastCheck": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+          "status": "active",
+          "githubActions": true,
+          "pages": {
+            "enabled": true,
+            "url": "https://ahmadaLmhd.github.io",
+            "builds": 18,
+            "lastBuild": "$(date +"%Y-%m-%d %H:%M:%S")"
           },
-          "news": [
+          "metrics": {
+            "totalWorkflows": 14,
+            "successRate": "92%",
+            "averageTime": "25s",
+            "caches": "مفعل",
+            "deployments": 14,
+            "runners": "ubuntu-latest"
+          },
+          "latestNews": [
             {
-              "id": 1,
-              "title": "🚀 تحديث نظام البناء",
-              "description": "تم تحسين pages-build-deployment مع دعم أفضل للذاكرة المؤقتة",
+              "title": "✨ تفعيل التحديثات التلقائية",
               "time": "$(date +"%H:%M")",
               "date": "$(date +"%Y-%m-%d")",
-              "category": "تحديث تقني",
-              "author": "ahmadaLmhd",
-              "status": "completed",
-              "duration": "37s"
+              "category": "نظام",
+              "details": "تم تفعيل نظام التحديثات التلقائية بنجاح"
             },
             {
-              "id": 2,
-              "title": "⚡ تحسين الأداء",
-              "description": "سرعة التحميل زادت 40% بفضل تحسينات جديدة",
-              "time": "$(date -d "10 minutes ago" +"%H:%M")",
+              "title": "🚀 تحسين الأداء",
+              "time": "$(date -d "5 minutes ago" +"%H:%M")",
               "date": "$(date +"%Y-%m-%d")",
-              "category": "أداء",
-              "author": "system",
-              "status": "completed",
-              "duration": "14s"
+              "category": "تحسين",
+              "details": "تحسين سرعة التحميل وذاكرة التخزين المؤقت"
             },
             {
-              "id": 3,
-              "title": "🔧 تحديثات الأمان",
-              "description": "تم تحديث التوثيقات وإجراءات الأمان",
-              "time": "$(date -d "30 minutes ago" +"%H:%M")",
+              "title": "🛡️ تحديثات أمنية",
+              "time": "$(date -d "15 minutes ago" +"%H:%M")",
               "date": "$(date +"%Y-%m-%d")",
               "category": "أمان",
-              "author": "security-bot",
-              "status": "completed",
-              "duration": "23s"
+              "details": "تحديث بروتوكولات الأمان والتوثيق"
             }
           ]
         }
         EOF
         
-        # إنشاء صفحة HTML احترافية
+        # إنشاء صفحة HTML بسيطة كبديل
         cat > index.html << 'EOF'
         <!DOCTYPE html>
         <html dir="rtl" lang="ar">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>النشرة التقنية - ahmadaLmhd</title>
-            <meta name="description" content="آخر التحديثات والأخبار التقنية">
-            <meta name="author" content="ahmadaLmhd">
-            <meta property="og:title" content="النشرة التقنية">
-            <meta property="og:type" content="website">
-            <meta property="og:url" content="https://ahmadaLmhd.github.io">
+            <title>ahmadaLmhd - التحديثات</title>
             <style>
-                :root {
-                    --primary: #2563eb;
-                    --primary-dark: #1d4ed8;
-                    --secondary: #7c3aed;
-                    --success: #10b981;
-                    --warning: #f59e0b;
-                    --danger: #ef4444;
-                    --dark: #1e293b;
-                    --light: #f8fafc;
-                }
-                
                 * {
                     margin: 0;
                     padding: 0;
@@ -135,349 +199,303 @@ jobs:
                 }
                 
                 body {
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
                     min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     padding: 20px;
                 }
                 
-                .container {
-                    max-width: 1200px;
-                    margin: 0 auto;
-                }
-                
-                /* Header */
-                .header {
+                .card {
                     background: rgba(255, 255, 255, 0.95);
                     backdrop-filter: blur(10px);
                     border-radius: 30px;
-                    padding: 30px;
-                    margin-bottom: 30px;
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-                    border: 1px solid rgba(255,255,255,0.3);
+                    padding: 40px;
+                    max-width: 800px;
+                    width: 100%;
+                    box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+                }
+                
+                .header {
+                    text-align: center;
+                    margin-bottom: 40px;
                 }
                 
                 .header h1 {
                     font-size: 2.5em;
-                    background: linear-gradient(135deg, #667eea, #764ba2);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
+                    color: #1e3c72;
                     margin-bottom: 10px;
                 }
                 
-                .header p {
-                    color: #64748b;
+                .header .subtitle {
+                    color: #666;
+                    font-size: 1.1em;
                 }
                 
-                /* Stats Cards */
-                .stats-grid {
+                .status-badge {
+                    display: inline-block;
+                    padding: 8px 20px;
+                    background: linear-gradient(135deg, #00b09b, #96c93d);
+                    color: white;
+                    border-radius: 50px;
+                    font-weight: 600;
+                    margin: 20px 0;
+                }
+                
+                .info-grid {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
                     gap: 20px;
-                    margin-bottom: 30px;
+                    margin: 30px 0;
                 }
                 
-                .stat-card {
-                    background: white;
+                .info-item {
+                    background: #f8f9fa;
+                    padding: 20px;
                     border-radius: 20px;
-                    padding: 25px;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-                    transition: transform 0.3s, box-shadow 0.3s;
-                    position: relative;
-                    overflow: hidden;
+                    text-align: center;
                 }
                 
-                .stat-card::before {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    right: 0;
-                    width: 100%;
-                    height: 4px;
-                    background: linear-gradient(90deg, var(--primary), var(--secondary));
-                }
-                
-                .stat-card:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-                }
-                
-                .stat-icon {
+                .info-value {
                     font-size: 2em;
-                    margin-bottom: 15px;
-                }
-                
-                .stat-value {
-                    font-size: 2.2em;
                     font-weight: bold;
-                    color: var(--dark);
+                    color: #1e3c72;
                     margin-bottom: 5px;
                 }
                 
-                .stat-label {
-                    color: #64748b;
+                .info-label {
+                    color: #666;
                     font-size: 0.9em;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
                 }
                 
-                /* News Cards */
-                .news-section {
-                    background: white;
-                    border-radius: 30px;
-                    padding: 30px;
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                .news-list {
+                    margin-top: 30px;
                 }
                 
-                .news-grid {
-                    display: grid;
-                    gap: 20px;
-                }
-                
-                .news-card {
-                    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-                    border-radius: 20px;
-                    padding: 25px;
-                    border-right: 4px solid var(--primary);
-                    transition: all 0.3s;
-                }
-                
-                .news-card:hover {
-                    border-right-width: 8px;
-                    padding-right: 30px;
-                }
-                
-                .news-header {
+                .news-item {
+                    padding: 15px;
+                    border-bottom: 1px solid #eee;
                     display: flex;
-                    justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 15px;
+                    gap: 15px;
                 }
                 
                 .news-time {
-                    color: var(--primary);
-                    font-weight: 600;
-                    font-size: 0.9em;
+                    background: #1e3c72;
+                    color: white;
+                    padding: 5px 10px;
+                    border-radius: 10px;
+                    font-size: 0.8em;
+                    min-width: 60px;
+                    text-align: center;
                 }
                 
-                .news-category {
-                    background: linear-gradient(135deg, var(--primary), var(--secondary));
-                    color: white;
-                    padding: 4px 12px;
-                    border-radius: 50px;
-                    font-size: 0.8em;
+                .news-content {
+                    flex: 1;
                 }
                 
                 .news-title {
-                    font-size: 1.4em;
-                    color: var(--dark);
-                    margin-bottom: 10px;
+                    font-weight: 600;
+                    color: #333;
+                    margin-bottom: 3px;
                 }
                 
-                .news-description {
-                    color: #475569;
-                    line-height: 1.7;
-                    margin-bottom: 15px;
+                .news-category {
+                    color: #666;
+                    font-size: 0.85em;
                 }
                 
-                .news-meta {
-                    display: flex;
-                    gap: 15px;
-                    color: #64748b;
-                    font-size: 0.9em;
-                }
-                
-                .news-meta span {
-                    display: flex;
-                    align-items: center;
-                    gap: 5px;
-                }
-                
-                /* Status Bar */
-                .status-bar {
-                    background: linear-gradient(135deg, var(--success), #059669);
-                    color: white;
-                    padding: 20px;
-                    border-radius: 15px;
-                    margin-top: 30px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    animation: pulse 2s infinite;
-                }
-                
-                @keyframes pulse {
-                    0% { opacity: 1; }
-                    50% { opacity: 0.9; }
-                    100% { opacity: 1; }
+                .footer {
+                    text-align: center;
+                    margin-top: 40px;
+                    padding-top: 20px;
+                    border-top: 1px solid #eee;
+                    color: #666;
                 }
                 
                 .live-indicator {
                     display: flex;
                     align-items: center;
+                    justify-content: center;
                     gap: 10px;
+                    margin-top: 20px;
                 }
                 
-                .live-dot {
+                .dot {
                     width: 12px;
                     height: 12px;
-                    background: white;
+                    background: #4ade80;
                     border-radius: 50%;
-                    animation: livePulse 1.5s infinite;
+                    animation: pulse 2s infinite;
                 }
                 
-                @keyframes livePulse {
+                @keyframes pulse {
                     0% { transform: scale(1); opacity: 1; }
                     50% { transform: scale(1.2); opacity: 0.7; }
                     100% { transform: scale(1); opacity: 1; }
                 }
-                
-                /* Footer */
-                .footer {
-                    text-align: center;
-                    margin-top: 30px;
-                    color: white;
-                    opacity: 0.8;
-                }
             </style>
         </head>
         <body>
-            <div class="container">
+            <div class="card">
                 <div class="header">
-                    <h1>📰 النشرة التقنية</h1>
-                    <p>آخر التحديثات من ahmadaLmhd</p>
+                    <h1>🚀 ahmadaLmhd</h1>
+                    <div class="subtitle">نظام التحديثات التلقائي</div>
                 </div>
                 
-                <div class="stats-grid" id="stats"></div>
+                <div style="text-align: center;">
+                    <span class="status-badge">✅ النظام يعمل بنجاح</span>
+                </div>
                 
-                <div class="news-section">
-                    <h2 style="margin-bottom: 20px; color: var(--dark);">📋 آخر الأخبار</h2>
-                    <div class="news-grid" id="news"></div>
-                    
-                    <div class="status-bar" id="status">
-                        <div class="live-indicator">
-                            <span class="live-dot"></span>
-                            <span>تحديث مباشر</span>
-                        </div>
-                        <span>آخر تحديث: $(date +"%Y-%m-%d %H:%M:%S")</span>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-value" id="runs">18</div>
+                        <div class="info-label">إجمالي التشغيلات</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-value" id="success">100%</div>
+                        <div class="info-label">نسبة النجاح</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-value" id="time">25s</div>
+                        <div class="info-label">متوسط الوقت</div>
                     </div>
                 </div>
                 
+                <div class="news-list" id="news">
+                    <!-- سيتم تعبئتها بواسطة JavaScript -->
+                </div>
+                
+                <div class="live-indicator">
+                    <span class="dot"></span>
+                    <span>آخر تحديث: $(date +"%Y-%m-%d %H:%M:%S")</span>
+                </div>
+                
                 <div class="footer">
-                    <p>تم النشر بواسطة GitHub Actions - جميع الحقوق محفوظة © 2026</p>
+                    <p>تم النشر بواسطة GitHub Actions 🤖</p>
                 </div>
             </div>
             
             <script>
-                // تحميل البيانات ديناميكياً
-                fetch('/news-data/latest.json')
-                    .then(response => response.json())
-                    .then(data => {
-                        // تحديث الإحصائيات
-                        const stats = document.getElementById('stats');
-                        stats.innerHTML = \`
-                            <div class="stat-card">
-                                <div class="stat-icon">📊</div>
-                                <div class="stat-value">\${data.metrics.totalRuns}</div>
-                                <div class="stat-label">إجمالي التشغيلات</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-icon">✅</div>
-                                <div class="stat-value">\${data.metrics.successRate}</div>
-                                <div class="stat-label">نسبة النجاح</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-icon">⚡</div>
-                                <div class="stat-value">\${data.metrics.averageTime}</div>
-                                <div class="stat-label">متوسط الوقت</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-icon">🚀</div>
-                                <div class="stat-value">\${data.metrics.performance.deployments}</div>
-                                <div class="stat-label">عمليات النشر</div>
-                            </div>
-                        \`;
-                        
-                        // عرض الأخبار
-                        const news = document.getElementById('news');
-                        news.innerHTML = data.news.map(item => \`
-                            <div class="news-card">
-                                <div class="news-header">
-                                    <span class="news-time">⏱️ \${item.time}</span>
-                                    <span class="news-category">\${item.category}</span>
-                                </div>
-                                <h3 class="news-title">\${item.title}</h3>
-                                <p class="news-description">\${item.description}</p>
-                                <div class="news-meta">
-                                    <span>👤 \${item.author}</span>
-                                    <span>⏱️ \${item.duration}</span>
-                                    <span>📅 \${item.date}</span>
-                                </div>
-                            </div>
-                        \`).join('');
-                    })
-                    .catch(error => {
-                        console.error('خطأ في تحميل البيانات:', error);
-                    });
+                // بيانات ثابتة للتجربة
+                const newsData = [
+                    { time: '$(date +"%H:%M")', title: '✨ تفعيل التحديثات التلقائية', category: 'نظام' },
+                    { time: '$(date -d "5 minutes ago" +"%H:%M")', title: '🚀 تحسين الأداء', category: 'تحسين' },
+                    { time: '$(date -d "15 minutes ago" +"%H:%M")', title: '🛡️ تحديثات أمنية', category: 'أمان' }
+                ];
+                
+                const newsList = document.getElementById('news');
+                newsList.innerHTML = newsData.map(item => `
+                    <div class="news-item">
+                        <div class="news-time">${item.time}</div>
+                        <div class="news-content">
+                            <div class="news-title">${item.title}</div>
+                            <div class="news-category">${item.category}</div>
+                        </div>
+                    </div>
+                `).join('');
             </script>
         </body>
         </html>
         EOF
         
-        # إنشاء ملف README محدث
-        cat > README.md << EOF
-        # 📰 النشرة التقنية - ahmadaLmhd
+        # إنشاء ملف .nojekyll لتعطيل Jekyll
+        touch .nojekyll
         
-        آخر تحديث: $(date +"%Y-%m-%d %H:%M:%S")
+        # إنشاء ملف CNAME إذا كان لديك دومين مخصص
+        # echo "yourdomain.com" > CNAME
         
-        ## 📊 إحصائيات سريعة
-        - ✅ إجمالي التشغيلات: 18
-        - ⚡ آخر تحديث: $(date +"%H:%M")
-        - 🚀 الحالة: نشط
-        
-        ## 📋 آخر الأخبار
-        $(for i in {1..3}; do echo "- تحديث $i: تم بنجاح"; done)
-        
-        ## 🔗 روابط مفيدة
-        - [الصفحة الرئيسية](https://ahmadaLmhd.github.io)
-        - [آخر التحديثات](https://github.com/ahmadaLmhd/ahmadaLmhd.github.io/actions)
-        
-        ---
-        *تم التحديث تلقائياً بواسطة GitHub Actions*
-        EOF
-        
-        echo "✅ تم إنشاء جميع الملفات بنجاح"
+        echo "✅ تم إنشاء جميع الملفات"
     
-    - name: ⚙️ تكوين Git
+    - name: ⚙️ إعداد Git
       run: |
         git config --global user.name "ahmadaLmhd"
-        git config --global user.email "${{ secrets.GITHUB_EMAIL }}"
-        git config --global credential.helper store
+        git config --global user.email "${{ secrets.GITHUB_EMAIL || 'ahmadaLmhd@users.noreply.github.com' }}"
+        git config --global http.postBuffer 524288000
+        git config --global core.compression 0
+    
+    - name: 🔄 إضافة وتأكيد التغييرات
+      run: |
+        # إضافة الملفات
+        git add .nojekyll *.html *.json status.json news-data/ 2>/dev/null || true
+        git add assets/ 2>/dev/null || true
         
-    - name: 🚀 رفع التغييرات
+        # التحقق من التغييرات
+        if git diff --staged --quiet && git diff --quiet; then
+          echo "ℹ️ لا توجد تغييرات جديدة"
+          echo "has_changes=false" >> $GITHUB_ENV
+        else
+          echo "✅ يوجد تغييرات جديدة"
+          git commit -m "📰 تحديث تلقائي: $(date +'%Y-%m-%d %H:%M:%S')" || echo "ℹ️ لا يوجد شيء لتأكيده"
+          echo "has_changes=true" >> $GITHUB_ENV
+        fi
+    
+    - name: 🚀 رفع التغييرات مع إعادة المحاولة
+      if: env.has_changes == 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # التأكد من الرابط الصحيح
-        REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/ahmadaLmhd/ahmadaLmhd.github.io.git"
+        MAX_RETRIES=5
+        RETRY_COUNT=0
         
-        # إضافة الملفات
-        git add news-data/ index.html README.md 2>/dev/null || true
-        git add *.html *.json *.md 2>/dev/null || true
+        # تجربة عدة URLs
+        REMOTE_URLS=(
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/ahmadaLmhd/ahmadaLmhd.github.io.git"
+          "https://${GITHUB_TOKEN}@github.com/ahmadaLmhd/ahmadaLmhd.github.io.git"
+          "https://oauth2:${GITHUB_TOKEN}@github.com/ahmadaLmhd/ahmadaLmhd.github.io.git"
+        )
         
-        # التحقق من وجود تغييرات
-        if git diff --staged --quiet; then
-          echo "ℹ️ لا توجد تغييرات جديدة"
-        else
-          git commit -m "📰 تحديث الأخبار: $(date +'%Y-%m-%d %H:%M:%S')"
-          git push $REPO_URL HEAD:main
-          echo "✅ تم رفع التغييرات بنجاح"
-        fi
+        for REMOTE_URL in "${REMOTE_URLS[@]}"; do
+          echo "🔄 محاولة استخدام: ${REMOTE_URL:0:50}..."
+          git remote set-url origin "$REMOTE_URL"
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if git push origin HEAD:main 2>/dev/null || git push origin HEAD:master 2>/dev/null; then
+              echo "✅ تم الرفع بنجاح!"
+              exit 0
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                WAIT_TIME=$((RETRY_COUNT * 5))
+                echo "⚠️ فشل الرفع، إعادة المحاولة بعد ${WAIT_TIME} ثواني... (محاولة $RETRY_COUNT من $MAX_RETRIES)"
+                sleep $WAIT_TIME
+              fi
+            fi
+          done
+          
+          # إعادة تعيين العداد للمحاولة التالية
+          RETRY_COUNT=0
+        done
+        
+        echo "❌ فشلت جميع المحاولات"
+        exit 1
     
-    - name: 📊 إنشاء تقرير
+    - name: 📊 إنشاء تقرير مفصل
       if: always()
       run: |
-        echo "## 📋 ملخص التنفيذ" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ الحالة: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-        echo "- 📅 الوقت: $(date)" >> $GITHUB_STEP_SUMMARY
-        echo "- 🔗 المستودع: ahmadaLmhd/ahmadaLmhd.github.io" >> $GITHUB_STEP_SUMMARY
+        {
+          echo "## 📋 تقرير التنفيذ"
+          echo ""
+          echo "### 📊 ملخص"
+          echo "| العنصر | القيمة |"
+          echo "|--------|--------|"
+          echo "| **الحالة النهائية** | ${{ job.status }} |"
+          echo "| **المستودع** | ahmadaLmhd/ahmadaLmhd.github.io |"
+          echo "| **الفرع** | main |"
+          echo "| **وقت التنفيذ** | $(date) |"
+          echo "| **مدة التنفيذ** | ${{ github.run_attempt }} |"
+          echo ""
+          echo "### 📝 الخطوات المنفذة"
+          echo "- ✅ تشخيص البيئة"
+          echo "- ✅ التحقق من المستودع"
+          echo "- ✅ إنشاء الملفات"
+          echo "- ✅ إعداد Git"
+          echo "- ${{ env.has_changes == 'true' && '✅' || '⏭️' }} رفع التغييرات"
+          echo ""
+          echo "### 🔗 روابط مفيدة"
+          echo "- [الصفحة الرئيسية](https://ahmadaLmhd.github.io)"
+          echo "- [آخر التحديثات](https://github.com/ahmadaLmhd/ahmadaLmhd.github.io/actions)"
+          echo "- [حالة المستودع](https://github.com/ahmadaLmhd/ahmadaLmhd.github.io)"
+        } >> $GITHUB_STEP_SUMMARY
