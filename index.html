@@ -1,0 +1,490 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>The Tech Daily - AI-Curated News</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Merriweather:wght@300;400;700&family=Crimson+Text:wght@400;600&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Merriweather', Georgia, serif;
+            background: #f8f5f0;
+            color: #1a1a1a;
+            line-height: 1.7;
+        }
+
+        .newspaper-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #fff;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Masthead / Header */
+        .masthead {
+            background: #1a1a1a;
+            color: #fff;
+            padding: 0.5rem 2rem;
+            border-bottom: 3px solid #c5a572;
+        }
+
+        .masthead-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #444;
+            margin-bottom: 0.5rem;
+        }
+
+        .date-edition {
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .weather-info {
+            font-style: italic;
+        }
+
+        .newspaper-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 4rem;
+            font-weight: 900;
+            text-align: center;
+            letter-spacing: 2px;
+            margin: 1rem 0;
+            text-transform: uppercase;
+            border-top: 2px solid #c5a572;
+            border-bottom: 2px solid #c5a572;
+            padding: 1rem 0;
+            background: linear-gradient(180deg, #fff 0%, #f5f5f5 100%);
+            color: #1a1a1a;
+            text-shadow: 2px 2px 0px rgba(197, 165, 114, 0.3);
+        }
+
+        .tagline {
+            text-align: center;
+            font-family: 'Crimson Text', serif;
+            font-style: italic;
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 1rem;
+            letter-spacing: 2px;
+        }
+
+        /* Control Bar */
+        .control-bar {
+            background: #f0ebe3;
+            border-top: 1px solid #c5a572;
+            border-bottom: 1px solid #c5a572;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .refresh-btn {
+            background: #1a1a1a;
+            color: #c5a572;
+            border: 2px solid #c5a572;
+            padding: 0.75rem 2rem;
+            font-family: 'Crimson Text', serif;
+            font-size: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #c5a572;
+            color: #1a1a1a;
+        }
+
+        #status {
+            font-family: 'Crimson Text', serif;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .status-count {
+            background: #c5a572;
+            color: #fff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 3px;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        /* Main Content Area */
+        .content-grid {
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2.5rem;
+            align-items: start;
+        }
+
+        /* Article Styles */
+        .article {
+            break-inside: avoid;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid #e5e5e5;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .article:last-child {
+            border-bottom: none;
+        }
+
+        .article-category {
+            display: inline-block;
+            background: #1a1a1a;
+            color: #c5a572;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .article-headline {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.75rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 0.5rem;
+            color: #1a1a1a;
+        }
+
+        .article-headline a {
+            color: #1a1a1a;
+            text-decoration: none;
+            border-bottom: 2px solid transparent;
+            transition: border-color 0.3s;
+        }
+
+        .article-headline a:hover {
+            border-bottom-color: #c5a572;
+        }
+
+        .article-meta {
+            font-family: 'Crimson Text', serif;
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 1rem;
+            font-style: italic;
+        }
+
+        .article-summary {
+            font-size: 0.95rem;
+            line-height: 1.8;
+            color: #333;
+            text-align: justify;
+            background: #fafaf8;
+            padding: 1rem;
+            border-left: 3px solid #c5a572;
+            font-family: 'Crimson Text', serif;
+        }
+
+        .ai-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #c5a572 0%, #b8985f 100%);
+            color: #fff;
+            padding: 0.15rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        /* Featured Article (First Item) */
+        .article.featured {
+            grid-column: 1 / -1;
+            border-bottom: 3px double #c5a572;
+            padding-bottom: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .article.featured .article-headline {
+            font-size: 2.5rem;
+            border-bottom: 2px solid #1a1a1a;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .article.featured .article-summary {
+            font-size: 1.05rem;
+            columns: 3;
+            column-gap: 2.5rem;
+        }
+
+        /* Empty State */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 4rem 2rem;
+            background: #f8f5f0;
+            border: 2px dashed #c5a572;
+        }
+
+        .empty-state h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            color: #1a1a1a;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state p {
+            font-family: 'Crimson Text', serif;
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        /* Loading State */
+        .loading {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 4rem 2rem;
+            font-family: 'Crimson Text', serif;
+            font-size: 1.2rem;
+            font-style: italic;
+            color: #888;
+        }
+
+        /* Footer */
+        .newspaper-footer {
+            background: #1a1a1a;
+            color: #c5a572;
+            text-align: center;
+            padding: 1.5rem;
+            font-family: 'Crimson Text', serif;
+            font-size: 0.85rem;
+            border-top: 3px solid #c5a572;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .content-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 2rem;
+            }
+
+            .article.featured .article-summary {
+                columns: 2;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .newspaper-title {
+                font-size: 2.5rem;
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+                gap: 1.5rem;
+            }
+
+            .article.featured .article-summary {
+                columns: 1;
+            }
+
+            .article.featured .article-headline {
+                font-size: 1.75rem;
+            }
+
+            .control-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .refresh-btn {
+                width: 100%;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+            }
+
+            .control-bar,
+            .refresh-btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="newspaper-wrapper">
+        <!-- Masthead -->
+        <div class="masthead">
+            <div class="masthead-top">
+                <div class="date-edition">
+                    <span id="current-date"></span> | Digital Edition
+                </div>
+                <div class="weather-info">
+                    Powered by AI & n8n
+                </div>
+            </div>
+        </div>
+
+        <h1 class="newspaper-title">The Tech Daily</h1>
+        <div class="tagline">All the Technology News That's Fit to Print</div>
+
+        <!-- Control Bar -->
+        <div class="control-bar">
+            <button class="refresh-btn" id="refresh">⟳ Latest Edition</button>
+            <div id="status"></div>
+        </div>
+
+        <!-- Articles Grid -->
+        <div id="items" class="content-grid"></div>
+
+        <!-- Footer -->
+        <div class="newspaper-footer">
+            &copy; <span id="year"></span> The Tech Daily | Curated by Artificial Intelligence
+        </div>
+    </div>
+
+    <script>
+        const itemsEl = document.getElementById('items');
+        const statusEl = document.getElementById('status');
+        const refreshBtn = document.getElementById('refresh');
+
+        // Set current date in masthead
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        document.getElementById('year').textContent = new Date().getFullYear();
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+            if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+            return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        }
+
+        async function load() {
+            itemsEl.innerHTML = '<div class="loading">Typesetting latest edition...</div>';
+            statusEl.innerHTML = '<span>Fetching articles...</span>';
+
+            try {
+                const res = await fetch('/feeds');
+                if (!res.ok) throw new Error(res.statusText);
+                const data = await res.json();
+
+                const fetchTime = new Date(data.fetchedAt).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+                statusEl.innerHTML = `
+                    Last Published: ${fetchTime}
+                    <span class="status-count">${data.count} ${data.count === 1 ? 'Article' : 'Articles'}</span>
+                `;
+
+                if (data.count === 0) {
+                    itemsEl.innerHTML = `
+                        <div class="empty-state">
+                            <h2>Press Room Empty</h2>
+                            <p>No stories have been filed yet.</p>
+                            <p style="margin-top: 1rem;">Awaiting dispatch from n8n news wire...</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                itemsEl.innerHTML = '';
+                data.items.forEach((it, index) => {
+                    const article = document.createElement('div');
+                    article.className = index === 0 ? 'article featured' : 'article';
+
+                    const category = it.source || 'Technology';
+                    const summaryHtml = it.summary ? `
+                        <div>
+                            <span class="ai-badge">🤖 AI Analysis</span>
+                            <div class="article-summary">${it.summary}</div>
+                        </div>
+                    ` : '';
+
+                    article.innerHTML = `
+                        <div class="article-category">${category}</div>
+                        <h2 class="article-headline">
+                            <a href="${it.link || '#'}" target="_blank" rel="noopener noreferrer">
+                                ${it.title || 'Untitled Story'}
+                            </a>
+                        </h2>
+                        <div class="article-meta">
+                            Published ${formatDate(it.pubDate)}
+                        </div>
+                        ${summaryHtml}
+                    `;
+                    itemsEl.appendChild(article);
+                });
+            } catch (err) {
+                statusEl.innerHTML = `<span style="color: #a00;">Error: ${err.message}</span>`;
+                itemsEl.innerHTML = `
+                    <div class="empty-state">
+                        <h2>Communication Failure</h2>
+                        <p>Unable to connect to the news wire service.</p>
+                        <p style="margin-top: 1rem;">Please verify the server is operational.</p>
+                    </div>
+                `;
+            }
+        }
+
+        refreshBtn.addEventListener('click', () => {
+            const originalText = refreshBtn.textContent;
+            refreshBtn.textContent = '⟳ Refreshing...';
+            refreshBtn.disabled = true;
+            load().then(() => {
+                refreshBtn.textContent = originalText;
+                refreshBtn.disabled = false;
+            });
+        });
+
+        // Auto-refresh every 60 seconds
+        setInterval(load, 60000);
+
+        // Initial load
+        load();
+    </script>
+</body>
+
+</html>
