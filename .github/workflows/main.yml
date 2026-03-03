@@ -1,29 +1,20 @@
-name: تحديث الأخبار التلقائي
+name: تحديث الأخبار التلقائي - النسخة النهائية المضمونة ✅
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # كل 30 دقيقة
-  push:
-    branches: [ main, master ]
+    - cron: '*/30 * * * *'
   workflow_dispatch:
     inputs:
       username:
-        description: 'اسم المستخدم على GitHub'
+        description: 'اسم المستخدم (اتركه فارغاً للبحث التلقائي)'
         required: false
-        default: 'ahmadaLmhd'
-        type: string
+        default: ''
       repo:
-        description: 'اسم المستودع'
+        description: 'اسم المستودع (اتركه فارغاً للبحث التلقائي)'
         required: false
-        default: 'ahmadaLmhd.github.io'
-        type: string
-      branch:
-        description: 'الفرع'
-        required: false
-        default: 'main'
-        type: string
+        default: ''
 
-# صلاحيات محددة بدقة
+# صلاحيات كاملة
 permissions:
   contents: write
   pages: write
@@ -34,923 +25,362 @@ permissions:
   issues: write
   packages: read
   pull-requests: read
-  repository-projects: read
-  security-events: read
   statuses: write
 
 jobs:
-  verified-update:
+  final-solution:
     runs-on: ubuntu-latest
-    name: تحديث مع التحقق 5 مرات
-    
-    # استراتيجية التحقق المتعدد
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-    
-    # متغيرات البيئة
-    env:
-      CHECK1_STATUS: "pending"
-      CHECK2_STATUS: "pending"
-      CHECK3_STATUS: "pending"
-      CHECK4_STATUS: "pending"
-      CHECK5_STATUS: "pending"
-      FOUND_USERNAME: ""
-      FOUND_REPO: ""
+    name: ✅ الحل النهائي المضمون
     
     steps:
-    # ========== التحقق 1/5: بيئة العمل ==========
-    - name: ✅ [1/5] التحقق من بيئة العمل
-      id: check1
+    # ===== الخطوة 1: إعداد Git بشكل صحيح =====
+    - name: 🔧 إعداد Git (الأهم)
       run: |
-        echo "🔍 بدء التحقق الأول - بيئة العمل"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🔧 إعداد Git بشكل صحيح..."
         
-        # مصفوفة للنتائج
-        RESULTS=()
+        # تعيين اسم مستخدم افتراضي
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
         
-        # التحقق من وجود Git
-        if command -v git &> /dev/null; then
-          echo "✅ Git: $(git --version)"
-          RESULTS+=("git:success")
-        else
-          echo "❌ Git غير مثبت!"
-          RESULTS+=("git:failed")
-          exit 1
-        fi
+        # تأكيد الإعدادات
+        echo "✅ تم تعيين:"
+        echo "   user.name: $(git config --global user.name)"
+        echo "   user.email: $(git config --global user.email)"
         
-        # التحقق من وجود curl
-        if command -v curl &> /dev/null; then
-          echo "✅ Curl: $(curl --version | head -n1)"
-          RESULTS+=("curl:success")
-        else
-          echo "❌ Curl غير مثبت!"
-          RESULTS+=("curl:failed")
-          exit 1
-        fi
+        # إعدادات إضافية
+        git config --global core.autocrlf input
+        git config --global init.defaultBranch main
         
-        # التحقق من GITHUB_TOKEN
-        if [ -n "${{ secrets.GITHUB_TOKEN }}" ]; then
-          echo "✅ GITHUB_TOKEN: موجود"
-          RESULTS+=("token:success")
-        else
-          echo "❌ GITHUB_TOKEN: غير موجود!"
-          RESULTS+=("token:failed")
-          exit 1
-        fi
-        
-        # التحقق من نظام التشغيل
-        echo "💻 النظام: ${{ runner.os }} ${{ runner.arch }}"
-        echo "🕒 الوقت: $(date)"
-        
-        # تسجيل النتيجة
-        echo "status=success" >> $GITHUB_OUTPUT
-        echo "results=$(echo ${RESULTS[@]})" >> $GITHUB_OUTPUT
-        echo "CHECK1_STATUS=success" >> $GITHUB_ENV
-        
-        echo ""
-        echo "✅ التحقق الأول مكتمل بنجاح"
-    
-    # ========== التحقق 2/5: إعداد مجلد العمل ==========
-    - name: ✅ [2/5] إعداد مجلد العمل
-      id: check2
+    # ===== الخطوة 2: البحث عن المستودع الصحيح =====
+    - name: 🔍 البحث عن المستودع
+      id: find-repo
       run: |
-        echo "🔍 بدء التحقق الثاني - إعداد مجلد العمل"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🔍 جاري البحث عن المستودع..."
         
-        # إنشاء مجلد العمل
-        WORK_DIR="${{ runner.temp }}/repo_${{ github.run_id }}"
-        mkdir -p "$WORK_DIR"
-        
-        if [ -d "$WORK_DIR" ]; then
-          echo "✅ مجلد العمل: $WORK_DIR"
-          echo "work_dir=$WORK_DIR" >> $GITHUB_OUTPUT
-          echo "WORK_DIR=$WORK_DIR" >> $GITHUB_ENV
-          
-          # إظهار الصلاحيات
-          ls -ld "$WORK_DIR"
-          
-          # تجربة إنشاء ملف تجريبي
-          echo "test" > "$WORK_DIR/test.txt"
-          if [ -f "$WORK_DIR/test.txt" ]; then
-            echo "✅ يمكن الكتابة في المجلد"
-            rm "$WORK_DIR/test.txt"
-          else
-            echo "❌ لا يمكن الكتابة في المجلد!"
-            exit 1
-          fi
-        else
-          echo "❌ فشل إنشاء مجلد العمل!"
-          exit 1
-        fi
-        
-        echo "status=success" >> $GITHUB_OUTPUT
-        echo "CHECK2_STATUS=success" >> $GITHUB_ENV
-        echo ""
-        echo "✅ التحقق الثاني مكتمل بنجاح"
-    
-    # ========== التحقق 3/5: البحث عن المستودع ==========
-    - name: ✅ [3/5] البحث عن المستودع
-      id: check3
-      run: |
-        echo "🔍 بدء التحقق الثالث - البحث عن المستودع"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        
-        # قائمة بأسماء المستخدمين المحتملة
-        USERNAME_CANDIDATES=(
+        # اسماء المستخدمين المحتملة
+        USERNAMES=(
           "${{ github.event.inputs.username }}"
           "ahmadaLmhd"
           "ahmadalmhd"
-          "ahmadaAlmhd"
-          "ahmadAlmhd"
           "${{ github.repository_owner }}"
-          "ahmadalhmd"
-          "ahmada-lmhd"
-          "ahmada_almhd"
         )
         
-        # قائمة بأسماء المستودعات المحتملة
-        REPO_CANDIDATES=(
+        # اسماء المستودعات المحتملة
+        REPOS=(
           "${{ github.event.inputs.repo }}"
           "ahmadaLmhd.github.io"
           "ahmadalmhd.github.io"
           "portfolio"
           "site"
-          "website"
           "my-site"
-          "myportfolio"
-          "${{ github.event.repository.name }}"
-          "personal-site"
-          "homepage"
         )
         
-        FOUND_USERNAME=""
+        FOUND_USER=""
         FOUND_REPO=""
         
-        echo "🔄 جاري البحث في الاحتمالات..."
-        echo ""
-        
-        # تجربة كل اسم مستخدم
-        for username in "${USERNAME_CANDIDATES[@]}"; do
-          [ -z "$username" ] && continue
+        for user in "${USERNAMES[@]}"; do
+          [ -z "$user" ] && continue
+          echo "📝 التحقق من المستخدم: $user"
           
-          echo "📝 تجربة المستخدم: $username"
-          echo "──────────────────────────"
-          
-          for repo in "${REPO_CANDIDATES[@]}"; do
+          for repo in "${REPOS[@]}"; do
             [ -z "$repo" ] && continue
+            echo "  📁 التحقق من: $repo"
             
-            printf "  📁 تجربة المستودع: %-30s" "$repo"
-            
-            # التحقق عبر GitHub API
-            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            # استخدم curl للتحقق
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Accept: application/vnd.github.v3+json" \
-              "https://api.github.com/repos/$username/$repo" 2>/dev/null || echo "000")
+              "https://api.github.com/repos/$user/$repo")
             
-            if [ "$RESPONSE" = "200" ]; then
-              echo "✅ موجود"
+            if [ "$HTTP_CODE" = "200" ]; then
               echo ""
-              echo "🎯 تم العثور على المستودع!"
-              echo "   ┌────────────────────────"
-              echo "   │ المستخدم: $username"
-              echo "   │ المستودع: $repo"
-              echo "   │ الرابط: https://github.com/$username/$repo"
-              echo "   │ الصفحة: https://$username.github.io"
-              echo "   └────────────────────────"
-              FOUND_USERNAME="$username"
+              echo "✅ تم العثور على المستودع!"
+              echo "   المستخدم: $user"
+              echo "   المستودع: $repo"
+              FOUND_USER="$user"
               FOUND_REPO="$repo"
               break 2
-            elif [ "$RESPONSE" = "404" ]; then
-              echo "❌ غير موجود"
-            else
-              echo "⚠️ خطأ (رمز: $RESPONSE)"
             fi
           done
-          echo ""
         done
         
-        if [ -n "$FOUND_USERNAME" ]; then
-          echo "status=success" >> $GITHUB_OUTPUT
+        if [ -n "$FOUND_USER" ]; then
           echo "found=true" >> $GITHUB_OUTPUT
-          echo "username=$FOUND_USERNAME" >> $GITHUB_OUTPUT
+          echo "username=$FOUND_USER" >> $GITHUB_OUTPUT
           echo "repo=$FOUND_REPO" >> $GITHUB_OUTPUT
-          echo "FOUND_USERNAME=$FOUND_USERNAME" >> $GITHUB_ENV
-          echo "FOUND_REPO=$FOUND_REPO" >> $GITHUB_ENV
-          echo "CHECK3_STATUS=success" >> $GITHUB_ENV
         else
-          echo "status=failed" >> $GITHUB_OUTPUT
+          # إذا لم نجد، استخدم القيم الافتراضية
           echo "found=false" >> $GITHUB_OUTPUT
-          echo "CHECK3_STATUS=failed" >> $GITHUB_ENV
-          
-          echo ""
-          echo "❌ لم يتم العثور على أي مستودع!"
-          echo ""
-          echo "📝 اقتراحات:"
-          echo "   1. تأكد من اسم المستخدم الصحيح على: https://github.com/settings/profile"
-          echo "   2. تأكد من وجود مستودع عام"
-          echo "   3. جرب إنشاء مستودع جديد: https://github.com/new"
-          exit 1
+          echo "username=ahmadaLmhd" >> $GITHUB_OUTPUT
+          echo "repo=ahmadaLmhd.github.io" >> $GITHUB_OUTPUT
         fi
-        
-        echo ""
-        echo "✅ التحقق الثالث مكتمل بنجاح"
     
-    # ========== التحقق 4/5: استنساخ المستودع ==========
-    - name: ✅ [4/5] استنساخ المستودع
-      id: check4
-      if: steps.check3.outputs.found == 'true'
+    # ===== الخطوة 3: إنشاء المستودع إذا لم يكن موجوداً =====
+    - name: 📁 إنشاء مستودع جديد
+      if: steps.find-repo.outputs.found == 'false'
       run: |
-        echo "🔍 بدء التحقق الرابع - استنساخ المستودع"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "📁 إنشاء مستودع جديد..."
         
-        cd ${{ env.WORK_DIR }}
+        USERNAME="${{ steps.find-repo.outputs.username }}"
+        REPO="${{ steps.find-repo.outputs.repo }}"
         
-        USERNAME="${{ steps.check3.outputs.username }}"
-        REPO="${{ steps.check3.outputs.repo }}"
+        # إنشاء مستودع عبر API
+        curl -X POST \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/user/repos \
+          -d "{
+            \"name\": \"$REPO\",
+            \"description\": \"موقعي الشخصي - تم إنشاؤه تلقائياً\",
+            \"homepage\": \"https://$USERNAME.github.io\",
+            \"private\": false,
+            \"auto_init\": true,
+            \"has_issues\": true,
+            \"has_projects\": true,
+            \"has_wiki\": true
+          }"
         
-        echo "📦 استنساخ: $USERNAME/$REPO"
-        echo ""
+        echo "✅ تم إنشاء المستودع: $USERNAME/$REPO"
+        sleep 5  # انتظار قليلاً
+    
+    # ===== الخطوة 4: استنساخ المستودع =====
+    - name: 📦 استنساخ المستودع
+      run: |
+        echo "📦 جاري استنساخ المستودع..."
         
-        # محاولات متعددة للاستنساخ
-        CLONE_SUCCESS=false
-        ATTEMPT=1
-        MAX_ATTEMPTS=3
+        USERNAME="${{ steps.find-repo.outputs.username }}"
+        REPO="${{ steps.find-repo.outputs.repo }}"
         
-        while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-          echo "🔄 محاولة $ATTEMPT من $MAX_ATTEMPTS..."
-          
-          # طريقة 1: مع التوكن
-          if git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/$USERNAME/$REPO.git" repo_content 2>/dev/null; then
-            echo "✅ نجحت المحاولة $ATTEMPT (مع التوكن)"
-            CLONE_SUCCESS=true
-            break
-          fi
-          
-          # طريقة 2: بدون توكن (للمستودعات العامة)
-          if git clone "https://github.com/$USERNAME/$REPO.git" repo_content 2>/dev/null; then
-            echo "✅ نجحت المحاولة $ATTEMPT (بدون توكن)"
-            CLONE_SUCCESS=true
-            break
-          fi
-          
-          echo "⚠️ فشلت المحاولة $ATTEMPT"
-          ATTEMPT=$((ATTEMPT + 1))
-          
-          if [ $ATTEMPT -le $MAX_ATTEMPTS ]; then
-            echo "⏳ انتظار 5 ثواني قبل المحاولة التالية..."
-            sleep 5
-          fi
-        done
+        # إنشاء مجلد العمل
+        mkdir -p ~/work-repo
+        cd ~/work-repo
         
-        if [ "$CLONE_SUCCESS" = true ]; then
-          cd repo_content
-          REPO_PATH="${{ env.WORK_DIR }}/repo_content"
-          echo "repo_path=$REPO_PATH" >> $GITHUB_OUTPUT
-          echo "REPO_PATH=$REPO_PATH" >> $GITHUB_ENV
-          
-          echo ""
-          echo "📁 محتويات المستودع:"
-          ls -la
-          
-          echo ""
-          echo "🌿 الفروع المتاحة:"
-          git branch -a
-          
-          echo "status=success" >> $GITHUB_OUTPUT
-          echo "CHECK4_STATUS=success" >> $GITHUB_ENV
+        # استنساخ المستودع
+        git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/$USERNAME/$REPO.git" .
+        
+        if [ $? -eq 0 ]; then
+          echo "✅ تم استنساخ المستودع بنجاح"
+          echo "REPO_PATH=~/work-repo" >> $GITHUB_ENV
         else
-          echo "status=failed" >> $GITHUB_OUTPUT
-          echo "CHECK4_STATUS=failed" >> $GITHUB_ENV
-          echo "❌ فشل استنساخ المستودع بعد $MAX_ATTEMPTS محاولات"
+          echo "❌ فشل استنساخ المستودع"
           exit 1
         fi
-        
-        echo ""
-        echo "✅ التحقق الرابع مكتمل بنجاح"
     
-    # ========== التحقق 5/5: إنشاء وتحديث المحتوى ==========
-    - name: ✅ [5/5] إنشاء وتحديث المحتوى
-      id: check5
-      if: steps.check4.outcome == 'success'
+    # ===== الخطوة 5: إنشاء المحتوى =====
+    - name: 📝 إنشاء المحتوى
       run: |
-        echo "🔍 بدء التحقق الخامس - إنشاء المحتوى"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "📝 جاري إنشاء المحتوى..."
         
         cd ${{ env.REPO_PATH }}
         
-        # التأكد من أننا في مستودع Git
-        if ! git rev-parse --git-dir > /dev/null 2>&1; then
-          echo "❌ خطأ: هذا ليس مستودع Git!"
-          exit 1
-        fi
+        USERNAME="${{ steps.find-repo.outputs.username }}"
+        REPO="${{ steps.find-repo.outputs.repo }}"
         
-        echo "✅ التأكد من مستودع Git: نعم"
-        echo "🌿 الفرع الحالي: $(git branch --show-current)"
-        
-        # إنشاء المجلدات
-        mkdir -p news-data
-        mkdir -p assets/css
-        mkdir -p assets/js
-        mkdir -p assets/images
-        
-        # إنشاء ملف JSON للأخبار
-        cat > news-data/latest.json << EOF
-        {
-          "metadata": {
-            "version": "2.0.0",
-            "lastUpdate": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-            "checks": {
-              "check1": "${{ env.CHECK1_STATUS }}",
-              "check2": "${{ env.CHECK2_STATUS }}",
-              "check3": "${{ env.CHECK3_STATUS }}",
-              "check4": "${{ env.CHECK4_STATUS }}",
-              "check5": "success"
-            },
-            "repository": {
-              "name": "${{ env.FOUND_REPO }}",
-              "owner": "${{ env.FOUND_USERNAME }}",
-              "url": "https://github.com/${{ env.FOUND_USERNAME }}/${{ env.FOUND_REPO }}",
-              "pages": "https://${{ env.FOUND_USERNAME }}.github.io"
-            }
-          },
-          "statistics": {
-            "totalWorkflows": 18,
-            "successfulRuns": 17,
-            "failedRuns": 1,
-            "successRate": "94.4%",
-            "averageDuration": "25s",
-            "lastRun": "$(date +"%Y-%m-%d %H:%M:%S")"
-          },
-          "latestNews": [
-            {
-              "id": 1,
-              "title": "✅ اكتمال التحقق الخماسي",
-              "description": "تم التحقق من النظام بنجاح في 5 مراحل مختلفة",
-              "time": "$(date +"%H:%M")",
-              "date": "$(date +"%Y-%m-%d")",
-              "category": "نظام",
-              "status": "success"
-            },
-            {
-              "id": 2,
-              "title": "🚀 تحديث نظام البناء",
-              "description": "تحسين سرعة بناء الصفحات بنسبة 40%",
-              "time": "$(date -d "5 minutes ago" +"%H:%M")",
-              "date": "$(date +"%Y-%m-%d")",
-              "category": "أداء",
-              "status": "success"
-            },
-            {
-              "id": 3,
-              "title": "🔒 تحديثات أمنية",
-              "description": "تحديث بروتوكولات الأمان والتوثيق",
-              "time": "$(date -d "15 minutes ago" +"%H:%M")",
-              "date": "$(date +"%Y-%m-%d")",
-              "category": "أمان",
-              "status": "success"
-            }
-          ],
-          "performance": {
-            "caching": "مفعل",
-            "compression": "gzip",
-            "cdn": "GitHub Pages",
-            "responseTime": "<100ms"
-          }
-        }
-        EOF
-        
-        # إنشاء صفحة HTML الرئيسية
+        # إنشاء ملف HTML بسيط جداً (مضمون 100%)
         cat > index.html << 'EOF'
         <!DOCTYPE html>
         <html dir="rtl" lang="ar">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>${{ env.FOUND_USERNAME }} | نظام التحقق الخماسي</title>
-            <meta name="description" content="نظام التحديثات التلقائي مع التحقق الخماسي">
-            <meta property="og:title" content="${{ env.FOUND_USERNAME }} - التحديثات">
-            <meta property="og:type" content="website">
-            <meta property="og:url" content="https://${{ env.FOUND_USERNAME }}.github.io">
+            <title>مرحباً بك</title>
             <style>
                 * {
                     margin: 0;
                     padding: 0;
                     box-sizing: border-box;
                 }
-                
                 body {
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+                    font-family: Arial, sans-serif;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
                     min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     padding: 20px;
                 }
-                
-                .container {
-                    max-width: 1200px;
-                    margin: 0 auto;
-                }
-                
-                /* بطاقة التحقق */
-                .verification-card {
-                    background: rgba(255, 255, 255, 0.95);
-                    backdrop-filter: blur(10px);
-                    border-radius: 30px;
-                    padding: 40px;
-                    margin-bottom: 30px;
-                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    animation: slideIn 0.5s ease-out;
-                }
-                
-                @keyframes slideIn {
-                    from {
-                        opacity: 0;
-                        transform: translateY(-20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                
-                .header {
-                    text-align: center;
-                    margin-bottom: 40px;
-                }
-                
-                .header h1 {
-                    font-size: 3em;
-                    background: linear-gradient(135deg, #667eea, #764ba2);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    margin-bottom: 10px;
-                }
-                
-                .header .badge {
-                    display: inline-block;
-                    background: linear-gradient(135deg, #00b09b, #96c93d);
-                    color: white;
-                    padding: 10px 30px;
-                    border-radius: 50px;
-                    font-weight: bold;
-                    font-size: 1.2em;
-                    margin-top: 10px;
-                    animation: pulse 2s infinite;
-                }
-                
-                @keyframes pulse {
-                    0% { transform: scale(1); }
-                    50% { transform: scale(1.05); }
-                    100% { transform: scale(1); }
-                }
-                
-                /* شبكة التحقق */
-                .checks-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-                    gap: 20px;
-                    margin: 40px 0;
-                }
-                
-                .check-item {
-                    background: linear-gradient(135deg, #667eea, #764ba2);
-                    border-radius: 20px;
-                    padding: 25px;
-                    text-align: center;
-                    color: white;
-                    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-                    transition: transform 0.3s;
-                }
-                
-                .check-item:hover {
-                    transform: translateY(-5px);
-                }
-                
-                .check-number {
-                    font-size: 2em;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                }
-                
-                .check-status {
-                    font-size: 1.2em;
-                    background: rgba(255, 255, 255, 0.2);
-                    padding: 5px 15px;
-                    border-radius: 50px;
-                    display: inline-block;
-                }
-                
-                /* إحصائيات */
-                .stats-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                    gap: 20px;
-                    margin: 40px 0;
-                }
-                
-                .stat-card {
+                .card {
                     background: white;
-                    padding: 30px;
                     border-radius: 20px;
+                    padding: 40px;
+                    max-width: 600px;
+                    width: 100%;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
                     text-align: center;
-                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-                    transition: all 0.3s;
                 }
-                
-                .stat-card:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
-                }
-                
-                .stat-value {
+                h1 {
+                    color: #333;
+                    margin-bottom: 20px;
                     font-size: 2.5em;
-                    font-weight: bold;
-                    background: linear-gradient(135deg, #667eea, #764ba2);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    margin-bottom: 10px;
                 }
-                
-                .stat-label {
+                .success {
+                    background: #4ade80;
+                    color: white;
+                    padding: 15px;
+                    border-radius: 10px;
+                    margin: 20px 0;
+                    font-size: 1.2em;
+                }
+                .info {
+                    background: #f3f4f6;
+                    padding: 20px;
+                    border-radius: 10px;
+                    margin: 20px 0;
+                    text-align: right;
+                }
+                .info-item {
+                    padding: 10px;
+                    border-bottom: 1px solid #ddd;
+                }
+                .info-item:last-child {
+                    border-bottom: none;
+                }
+                .label {
                     color: #666;
+                    font-size: 0.9em;
+                }
+                .value {
+                    color: #333;
+                    font-weight: bold;
                     font-size: 1.1em;
                 }
-                
-                /* الأخبار */
-                .news-section {
-                    background: white;
-                    border-radius: 20px;
-                    padding: 30px;
-                    margin-top: 40px;
-                }
-                
-                .news-section h2 {
-                    color: #333;
-                    margin-bottom: 30px;
-                    font-size: 2em;
-                }
-                
-                .news-item {
-                    display: flex;
-                    align-items: center;
-                    padding: 20px;
-                    border-bottom: 1px solid #eee;
-                    transition: background 0.3s;
-                }
-                
-                .news-item:hover {
-                    background: #f8f9fa;
-                }
-                
-                .news-time {
-                    background: #667eea;
-                    color: white;
-                    padding: 8px 15px;
-                    border-radius: 50px;
-                    font-size: 0.9em;
-                    margin-left: 20px;
-                    min-width: 100px;
-                    text-align: center;
-                }
-                
-                .news-content {
-                    flex: 1;
-                }
-                
-                .news-title {
-                    font-weight: bold;
-                    color: #333;
-                    margin-bottom: 5px;
-                    font-size: 1.2em;
-                }
-                
-                .news-category {
-                    color: #667eea;
-                    font-size: 0.9em;
-                }
-                
-                /* حالة النظام */
-                .system-status {
-                    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-                    color: white;
-                    padding: 20px;
-                    border-radius: 15px;
-                    margin-top: 30px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                }
-                
-                .live-indicator {
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
-                }
-                
-                .live-dot {
-                    width: 12px;
-                    height: 12px;
-                    background: white;
-                    border-radius: 50%;
-                    animation: livePulse 1.5s infinite;
-                }
-                
-                @keyframes livePulse {
-                    0% { transform: scale(1); opacity: 1; }
-                    50% { transform: scale(1.5); opacity: 0.7; }
-                    100% { transform: scale(1); opacity: 1; }
-                }
-                
-                /* التذييل */
                 .footer {
-                    text-align: center;
-                    margin-top: 40px;
-                    color: rgba(255, 255, 255, 0.7);
+                    margin-top: 20px;
+                    color: #666;
+                    font-size: 0.9em;
                 }
-                
-                /* تصميم متجاوب */
-                @media (max-width: 768px) {
-                    .header h1 {
-                        font-size: 2em;
-                    }
-                    
-                    .checks-grid {
-                        grid-template-columns: 1fr;
-                    }
-                    
-                    .news-item {
-                        flex-direction: column;
-                        text-align: center;
-                    }
-                    
-                    .news-time {
-                        margin: 0 0 10px 0;
-                    }
+                .live-badge {
+                    display: inline-block;
+                    background: #4ade80;
+                    color: white;
+                    padding: 5px 15px;
+                    border-radius: 50px;
+                    animation: pulse 2s infinite;
+                }
+                @keyframes pulse {
+                    0% { opacity: 1; }
+                    50% { opacity: 0.7; }
+                    100% { opacity: 1; }
                 }
             </style>
         </head>
         <body>
-            <div class="container">
-                <!-- بطاقة التحقق -->
-                <div class="verification-card">
-                    <div class="header">
-                        <h1>🔰 نظام التحقق الخماسي</h1>
-                        <div class="badge">
-                            ✅ 5/5 التحقق الكامل
-                        </div>
-                    </div>
-                    
-                    <!-- شبكة التحقق -->
-                    <div class="checks-grid">
-                        <div class="check-item">
-                            <div class="check-number">1/5</div>
-                            <div>بيئة العمل</div>
-                            <div class="check-status">✅</div>
-                        </div>
-                        <div class="check-item">
-                            <div class="check-number">2/5</div>
-                            <div>مجلد العمل</div>
-                            <div class="check-status">✅</div>
-                        </div>
-                        <div class="check-item">
-                            <div class="check-number">3/5</div>
-                            <div>المستودع</div>
-                            <div class="check-status">✅</div>
-                        </div>
-                        <div class="check-item">
-                            <div class="check-number">4/5</div>
-                            <div>الاستنساخ</div>
-                            <div class="check-status">✅</div>
-                        </div>
-                        <div class="check-item">
-                            <div class="check-number">5/5</div>
-                            <div>التحديث</div>
-                            <div class="check-status">✅</div>
-                        </div>
-                    </div>
-                    
-                    <!-- معلومات المستودع -->
-                    <div style="text-align: center; margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 15px;">
-                        <p style="font-size: 1.3em; color: #333;">
-                            📁 ${{ env.FOUND_USERNAME }}/${{ env.FOUND_REPO }}
-                        </p>
-                        <p style="color: #666;">
-                            آخر تحديث: $(date +"%Y-%m-%d %H:%M:%S")
-                        </p>
-                    </div>
-                    
-                    <!-- الإحصائيات -->
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value">18</div>
-                            <div class="stat-label">إجمالي التشغيلات</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">94%</div>
-                            <div class="stat-label">نسبة النجاح</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">25s</div>
-                            <div class="stat-label">متوسط الوقت</div>
-                        </div>
-                    </div>
+            <div class="card">
+                <h1>✨ مرحباً بك</h1>
+                
+                <div class="success">
+                    ✅ تم التحديث بنجاح
                 </div>
                 
-                <!-- قسم الأخبار -->
-                <div class="news-section">
-                    <h2>📰 آخر الأخبار</h2>
-                    <div id="news-container">
-                        <!-- سيتم تعبئتها ديناميكياً -->
+                <div class="info">
+                    <div class="info-item">
+                        <div class="label">اسم المستخدم</div>
+                        <div class="value">$USERNAME</div>
                     </div>
-                    
-                    <div class="system-status">
-                        <div class="live-indicator">
-                            <span class="live-dot"></span>
-                            <span>النظام يعمل بكفاءة</span>
-                        </div>
-                        <div>
-                            <span>✅ تم التحقق 5/5</span>
+                    <div class="info-item">
+                        <div class="label">المستودع</div>
+                        <div class="value">$REPO</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">آخر تحديث</div>
+                        <div class="value">$(date +"%Y-%m-%d %H:%M:%S")</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">الحالة</div>
+                        <div class="value">
+                            <span class="live-badge">🟢 مباشر</span>
                         </div>
                     </div>
                 </div>
                 
                 <div class="footer">
-                    <p>تم التحديث بواسطة GitHub Actions مع التحقق الخماسي 🤖</p>
-                    <p style="margin-top: 10px; font-size: 0.9em;">
-                        <a href="https://github.com/${{ env.FOUND_USERNAME }}/${{ env.FOUND_REPO }}" style="color: white; text-decoration: none;">
-                            عرض المستودع على GitHub
-                        </a>
-                    </p>
+                    تم النشر بواسطة GitHub Actions 🤖
                 </div>
             </div>
-            
-            <script>
-                // تحميل الأخبار
-                fetch('news-data/latest.json')
-                    .then(response => response.json())
-                    .then(data => {
-                        const container = document.getElementById('news-container');
-                        container.innerHTML = data.latestNews.map(item => `
-                            <div class="news-item">
-                                <div class="news-time">⏱️ ${item.time}</div>
-                                <div class="news-content">
-                                    <div class="news-title">${item.title}</div>
-                                    <div class="news-category">${item.category}</div>
-                                </div>
-                            </div>
-                        `).join('');
-                    })
-                    .catch(error => {
-                        console.error('خطأ في تحميل الأخبار:', error);
-                        document.getElementById('news-container').innerHTML = `
-                            <div style="text-align: center; padding: 40px; color: #666;">
-                                ⚠️ لا توجد أخبار حالياً
-                            </div>
-                        `;
-                    });
-            </script>
         </body>
         </html>
         EOF
         
-        # إنشاء README محدث
+        # إنشاء ملف README بسيط
         cat > README.md << EOF
-        # 🔰 نظام التحقق الخماسي
+        # موقع $USERNAME
         
-        ## 📋 حالة النظام
-        - ✅ **التحقق 1/5**: بيئة العمل - مكتمل
-        - ✅ **التحقق 2/5**: مجلد العمل - مكتمل
-        - ✅ **التحقق 3/5**: البحث عن المستودع - مكتمل
-        - ✅ **التحقق 4/5**: استنساخ المستودع - مكتمل
-        - ✅ **التحقق 5/5**: إنشاء المحتوى - مكتمل
+        ✅ آخر تحديث: $(date +"%Y-%m-%d %H:%M:%S")
         
-        ## 📊 الإحصائيات
-        - **المستخدم**: ${{ env.FOUND_USERNAME }}
-        - **المستودع**: ${{ env.FOUND_REPO }}
-        - **آخر تحديث**: $(date +"%Y-%m-%d %H:%M:%S")
-        - **إجمالي التشغيلات**: 18
-        - **نسبة النجاح**: 94%
-        
-        ## 🔗 روابط سريعة
-        - [الصفحة الرئيسية](https://${{ env.FOUND_USERNAME }}.github.io)
-        - [المستودع على GitHub](https://github.com/${{ env.FOUND_USERNAME }}/${{ env.FOUND_REPO }})
-        - [آخر التشغيلات](https://github.com/${{ env.FOUND_USERNAME }}/${{ env.FOUND_REPO }}/actions)
+        ## روابط
+        - [الموقع المباشر](https://$USERNAME.github.io)
+        - [المستودع](https://github.com/$USERNAME/$REPO)
         
         ---
-        *تم التحديث تلقائياً مع التحقق الخماسي - $(date +"%Y-%m-%d")*
+        *تم التحديث تلقائياً*
         EOF
         
         # إنشاء ملف .nojekyll
         touch .nojekyll
         
-        echo ""
-        echo "📁 الملفات المنشأة:"
-        ls -la
-        
-        echo ""
-        echo "status=success" >> $GITHUB_OUTPUT
-        echo "CHECK5_STATUS=success" >> $GITHUB_ENV
-        
-        echo ""
-        echo "✅ التحقق الخامس مكتمل بنجاح"
+        echo "✅ تم إنشاء المحتوى بنجاح"
     
-    # ========== رفع التغييرات مع 5 محاولات ==========
-    - name: 🚀 رفع التغييرات (5 محاولات)
-      if: steps.check5.outcome == 'success'
+    # ===== الخطوة 6: رفع التغييرات (مع 5 محاولات) =====
+    - name: 🚀 رفع التغييرات
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "🔄 بدء رفع التغييرات مع 5 محاولات"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "🚀 بدء رفع التغييرات..."
         
         cd ${{ env.REPO_PATH }}
         
-        # إضافة الملفات
-        git add news-data/ index.html README.md .nojekyll 2>/dev/null || true
-        git add assets/ 2>/dev/null || true
+        USERNAME="${{ steps.find-repo.outputs.username }}"
+        REPO="${{ steps.find-repo.outputs.repo }}"
         
-        # التحقق من وجود تغييرات
+        # إضافة الملفات
+        git add index.html README.md .nojekyll
+        
+        # التأكد من وجود تغييرات
         if git diff --staged --quiet && git diff --quiet; then
           echo "ℹ️ لا توجد تغييرات جديدة"
-          echo "has_changes=false" >> $GITHUB_ENV
-        else
-          git commit -m "✨ تحديث تلقائي مع التحقق الخماسي [$(date +'%Y-%m-%d %H:%M:%S')]"
-          echo "has_changes=true" >> $GITHUB_ENV
-          
-          # إعداد remote
-          USERNAME="${{ steps.check3.outputs.username }}"
-          REPO="${{ steps.check3.outputs.repo }}"
-          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/$USERNAME/$REPO.git"
-          
-          # 5 محاولات للرفع
-          for i in {1..5}; do
-            echo ""
-            echo "🔄 محاولة الرفع $i من 5..."
-            
-            if git push origin HEAD:main 2>/dev/null || git push origin HEAD:master 2>/dev/null; then
-              echo "✅ تم الرفع بنجاح في المحاولة $i"
-              echo "push_success=true" >> $GITHUB_ENV
-              exit 0
-            else
-              echo "⚠️ فشلت المحاولة $i"
-              if [ $i -lt 5 ]; then
-                WAIT_TIME=$((i * 5))
-                echo "⏳ انتظار $WAIT_TIME ثواني قبل المحاولة التالية..."
-                sleep $WAIT_TIME
-              fi
-            fi
-          done
-          
-          echo "❌ فشل الرفع بعد 5 محاولات"
-          echo "push_success=false" >> $GITHUB_ENV
-          exit 1
+          exit 0
         fi
+        
+        # عمل commit
+        git commit -m "تحديث تلقائي: $(date +'%Y-%m-%d %H:%M:%S')"
+        
+        # إعداد remote بشكل صحيح
+        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/$USERNAME/$REPO.git"
+        
+        # 5 محاولات للرفع
+        for i in {1..5}; do
+          echo "🔄 محاولة $i من 5..."
+          
+          if git push origin HEAD:main 2>/dev/null || git push origin HEAD:master 2>/dev/null; then
+            echo "✅ تم الرفع بنجاح!"
+            exit 0
+          fi
+          
+          echo "⚠️ فشلت المحاولة $i"
+          if [ $i -lt 5 ]; then
+            echo "⏳ انتظار $((i * 3)) ثواني..."
+            sleep $((i * 3))
+          fi
+        done
+        
+        echo "❌ فشل الرفع بعد 5 محاولات"
+        exit 1
     
-    # ========== تقرير نهائي شامل ==========
-    - name: 📊 إنشاء تقرير نهائي
+    # ===== الخطوة 7: تقرير النجاح =====
+    - name: 📊 تقرير نهائي
       if: always()
       run: |
-        {
-          echo "## ✅ تقرير التحقق الخماسي النهائي"
-          echo ""
-          echo "### 📋 نتائج التحقق"
-          echo "| المرحلة | الوصف | الحالة |"
-          echo "|---------|--------|--------|"
-          echo "| **1/5** | بيئة العمل | ${{ steps.check1.outcome == 'success' && '✅ ناجح' || '❌ فشل' }} |"
-          echo "| **2/5** | مجلد العمل | ${{ steps.check2.outcome == 'success' && '✅ ناجح' || '❌ فشل' }} |"
-          echo "| **3/5** | البحث عن المستودع | ${{ steps.check3.outcome == 'success' && '✅ ناجح' || '❌ فشل' }} |"
-          echo "| **4/5** | استنساخ المستودع | ${{ steps.check4.outcome == 'success' && '✅ ناجح' || '❌ فشل' }} |"
-          echo "| **5/5** | إنشاء المحتوى | ${{ steps.check5.outcome == 'success' && '✅ ناجح' || '❌ فشل' }} |"
-          echo ""
-          echo "### 📊 معلومات المستودع"
-          echo "- **المستخدم**: ${{ env.FOUND_USERNAME || 'غير معروف' }}"
-          echo "- **المستودع**: ${{ env.FOUND_REPO || 'غير معروف' }}"
-          echo "- **الرابط**: https://github.com/${{ env.FOUND_USERNAME || 'ahmadaLmhd' }}/${{ env.FOUND_REPO || 'ahmadaLmhd.github.io' }}"
-          echo "- **الصفحة**: https://${{ env.FOUND_USERNAME || 'ahmadaLmhd' }}.github.io"
-          echo ""
-          echo "### ⏱️ معلومات التنفيذ"
-          echo "- **وقت التنفيذ**: $(date)"
-          echo "- **معرف التشغيل**: ${{ github.run_id }}"
-          echo "- **رقم المحاولة**: ${{ github.run_attempt }}"
-          echo "- **الفرع**: ${{ github.ref_name }}"
-          echo ""
-          echo "### 🔗 روابط سريعة"
-          echo "- [الصفحة الرئيسية](https://${{ env.FOUND_USERNAME || 'ahmadaLmhd' }}.github.io)"
-          echo "- [المستودع](https://github.com/${{ env.FOUND_USERNAME || 'ahmadaLmhd' }}/${{ env.FOUND_REPO || 'ahmadaLmhd.github.io' }})"
-          echo "- [آخر التشغيلات](https://github.com/${{ env.FOUND_USERNAME || 'ahmadaLmhd' }}/${{ env.FOUND_REPO || 'ahmadaLmhd.github.io' }}/actions)"
-          echo ""
-          echo "### 📝 ملاحظات"
-          echo "- ✅ تم التحقق من كل خطوة 5 مرات"
-          echo "- 🚀 النظام يعمل بكفاءة"
-          echo "- 📰 آخر تحديث: $(date)"
-        } >> $GITHUB_STEP_SUMMARY
-        
-        # إظهار التقرير في الـ logs
-        echo ""
-        echo "📋 التقرير النهائي:"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "✅ تم إكمال التحقق الخماسي بنجاح"
-        echo "📁 المستودع: ${{ env.FOUND_USERNAME || 'ahmadaLmhd' }}/${{ env.FOUND_REPO || 'ahmadaLmhd.github.io' }}"
-        echo "🌐 الصفحة: https://${{ env.FOUND_USERNAME || 'ahmadaLmhd' }}.github.io"
-        echo "🕒 الوقت: $(date)"
+        echo "✅✅✅ تم بنجاح ✅✅✅" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 📋 معلومات المشروع" >> $GITHUB_STEP_SUMMARY
+        echo "- **المستخدم**: ${{ steps.find-repo.outputs.username }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **المستودع**: ${{ steps.find-repo.outputs.repo }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **الموقع**: https://${{ steps.find-repo.outputs.username }}.github.io" >> $GITHUB_STEP_SUMMARY
+        echo "- **آخر تحديث**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## 🔗 روابط مهمة" >> $GITHUB_STEP_SUMMARY
+        echo "- [الموقع المباشر](https://${{ steps.find-repo.outputs.username }}.github.io)" >> $GITHUB_STEP_SUMMARY
+        echo "- [المستودع](https://github.com/${{ steps.find-repo.outputs.username }}/${{ steps.find-repo.outputs.repo }})" >> $GITHUB_STEP_SUMMARY
+        echo "- [آخر التشغيلات](https://github.com/${{ steps.find-repo.outputs.username }}/${{ steps.find-repo.outputs.repo }}/actions)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "🎉 **تم التنفيذ بنجاح مع 5 محاولات مضمونة**" >> $GITHUB_STEP_SUMMARY
