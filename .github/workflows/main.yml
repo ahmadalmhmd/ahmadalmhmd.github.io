@@ -1,4 +1,4 @@
-name: تحديث الأخبار التلقائي - النسخة النهائية المضمونة ✅
+name: تحديث الأخبار التلقائي
 
 on:
   schedule:
@@ -6,224 +6,104 @@ on:
   workflow_dispatch:
     inputs:
       username:
-        description: 'اسم المستخدم (اتركه فارغاً للبحث التلقائي)'
+        description: 'اسم المستخدم (اتركه فارغاً)'
         required: false
         default: ''
       repo:
-        description: 'اسم المستودع (اتركه فارغاً للبحث التلقائي)'
+        description: 'اسم المستودع (اتركه فارغاً)'
         required: false
         default: ''
 
-# صلاحيات كاملة
 permissions:
   contents: write
   pages: write
   id-token: write
-  actions: read
-  checks: write
-  deployments: write
-  issues: write
-  packages: read
-  pull-requests: read
-  statuses: write
 
 jobs:
-  final-solution:
+  deploy:
     runs-on: ubuntu-latest
-    name: ✅ الحل النهائي المضمون
+    name: تحديث الموقع
     
     steps:
-    # ===== الخطوة 1: إعداد Git بشكل صحيح =====
-    - name: 🔧 إعداد Git (الأهم)
+    - name: إعداد Git
       run: |
-        echo "🔧 إعداد Git بشكل صحيح..."
-        
-        # تعيين اسم مستخدم افتراضي
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        
-        # تأكيد الإعدادات
-        echo "✅ تم تعيين:"
-        echo "   user.name: $(git config --global user.name)"
-        echo "   user.email: $(git config --global user.email)"
-        
-        # إعدادات إضافية
-        git config --global core.autocrlf input
-        git config --global init.defaultBranch main
-        
-    # ===== الخطوة 2: البحث عن المستودع الصحيح =====
-    - name: 🔍 البحث عن المستودع
-      id: find-repo
+    
+    - name: تحديد المستودع
+      id: repo
       run: |
-        echo "🔍 جاري البحث عن المستودع..."
+        USERNAME="${{ github.event.inputs.username }}"
+        REPO="${{ github.event.inputs.repo }}"
         
-        # اسماء المستخدمين المحتملة
-        USERNAMES=(
-          "${{ github.event.inputs.username }}"
-          "ahmadaLmhd"
-          "ahmadalmhd"
-          "${{ github.repository_owner }}"
-        )
-        
-        # اسماء المستودعات المحتملة
-        REPOS=(
-          "${{ github.event.inputs.repo }}"
-          "ahmadaLmhd.github.io"
-          "ahmadalmhd.github.io"
-          "portfolio"
-          "site"
-          "my-site"
-        )
-        
-        FOUND_USER=""
-        FOUND_REPO=""
-        
-        for user in "${USERNAMES[@]}"; do
-          [ -z "$user" ] && continue
-          echo "📝 التحقق من المستخدم: $user"
-          
-          for repo in "${REPOS[@]}"; do
-            [ -z "$repo" ] && continue
-            echo "  📁 التحقق من: $repo"
-            
-            # استخدم curl للتحقق
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/$user/$repo")
-            
-            if [ "$HTTP_CODE" = "200" ]; then
-              echo ""
-              echo "✅ تم العثور على المستودع!"
-              echo "   المستخدم: $user"
-              echo "   المستودع: $repo"
-              FOUND_USER="$user"
-              FOUND_REPO="$repo"
-              break 2
-            fi
-          done
-        done
-        
-        if [ -n "$FOUND_USER" ]; then
-          echo "found=true" >> $GITHUB_OUTPUT
-          echo "username=$FOUND_USER" >> $GITHUB_OUTPUT
-          echo "repo=$FOUND_REPO" >> $GITHUB_OUTPUT
-        else
-          # إذا لم نجد، استخدم القيم الافتراضية
-          echo "found=false" >> $GITHUB_OUTPUT
-          echo "username=ahmadaLmhd" >> $GITHUB_OUTPUT
-          echo "repo=ahmadaLmhd.github.io" >> $GITHUB_OUTPUT
+        if [ -z "$USERNAME" ]; then
+          USERNAME="ahmadaLmhd"
         fi
+        
+        if [ -z "$REPO" ]; then
+          REPO="ahmadaLmhd.github.io"
+        fi
+        
+        echo "username=$USERNAME" >> $GITHUB_OUTPUT
+        echo "repo=$REPO" >> $GITHUB_OUTPUT
     
-    # ===== الخطوة 3: إنشاء المستودع إذا لم يكن موجوداً =====
-    - name: 📁 إنشاء مستودع جديد
-      if: steps.find-repo.outputs.found == 'false'
+    - name: استنساخ المستودع
       run: |
-        echo "📁 إنشاء مستودع جديد..."
-        
-        USERNAME="${{ steps.find-repo.outputs.username }}"
-        REPO="${{ steps.find-repo.outputs.repo }}"
-        
-        # إنشاء مستودع عبر API
-        curl -X POST \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/user/repos \
-          -d "{
-            \"name\": \"$REPO\",
-            \"description\": \"موقعي الشخصي - تم إنشاؤه تلقائياً\",
-            \"homepage\": \"https://$USERNAME.github.io\",
-            \"private\": false,
-            \"auto_init\": true,
-            \"has_issues\": true,
-            \"has_projects\": true,
-            \"has_wiki\": true
-          }"
-        
-        echo "✅ تم إنشاء المستودع: $USERNAME/$REPO"
-        sleep 5  # انتظار قليلاً
-    
-    # ===== الخطوة 4: استنساخ المستودع =====
-    - name: 📦 استنساخ المستودع
-      run: |
-        echo "📦 جاري استنساخ المستودع..."
-        
-        USERNAME="${{ steps.find-repo.outputs.username }}"
-        REPO="${{ steps.find-repo.outputs.repo }}"
-        
-        # إنشاء مجلد العمل
-        mkdir -p ~/work-repo
-        cd ~/work-repo
-        
-        # استنساخ المستودع
+        mkdir -p repo
+        cd repo
+        USERNAME="${{ steps.repo.outputs.username }}"
+        REPO="${{ steps.repo.outputs.repo }}"
         git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/$USERNAME/$REPO.git" .
-        
-        if [ $? -eq 0 ]; then
-          echo "✅ تم استنساخ المستودع بنجاح"
-          echo "REPO_PATH=~/work-repo" >> $GITHUB_ENV
-        else
-          echo "❌ فشل استنساخ المستودع"
-          exit 1
-        fi
     
-    # ===== الخطوة 5: إنشاء المحتوى =====
-    - name: 📝 إنشاء المحتوى
+    - name: إنشاء الملفات
       run: |
-        echo "📝 جاري إنشاء المحتوى..."
+        cd repo
         
-        cd ${{ env.REPO_PATH }}
-        
-        USERNAME="${{ steps.find-repo.outputs.username }}"
-        REPO="${{ steps.find-repo.outputs.repo }}"
-        
-        # إنشاء ملف HTML بسيط جداً (مضمون 100%)
         cat > index.html << 'EOF'
         <!DOCTYPE html>
         <html dir="rtl" lang="ar">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>مرحباً بك</title>
+            <title>موقعي</title>
             <style>
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
-                body {
-                    font-family: Arial, sans-serif;
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
                     background: linear-gradient(135deg, #667eea, #764ba2);
                     min-height: 100vh;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     padding: 20px;
+                    font-family: Arial, sans-serif;
                 }
                 .card {
                     background: white;
-                    border-radius: 20px;
+                    border-radius: 30px;
                     padding: 40px;
-                    max-width: 600px;
+                    max-width: 500px;
                     width: 100%;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
                     text-align: center;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
                 }
                 h1 {
                     color: #333;
                     margin-bottom: 20px;
                     font-size: 2.5em;
                 }
-                .success {
+                .badge {
                     background: #4ade80;
                     color: white;
-                    padding: 15px;
-                    border-radius: 10px;
+                    padding: 10px 20px;
+                    border-radius: 50px;
+                    display: inline-block;
                     margin: 20px 0;
-                    font-size: 1.2em;
+                    font-weight: bold;
                 }
                 .info {
                     background: #f3f4f6;
+                    border-radius: 15px;
                     padding: 20px;
-                    border-radius: 10px;
                     margin: 20px 0;
                     text-align: right;
                 }
@@ -241,146 +121,85 @@ jobs:
                 .value {
                     color: #333;
                     font-weight: bold;
-                    font-size: 1.1em;
+                    font-size: 1.2em;
                 }
-                .footer {
-                    margin-top: 20px;
-                    color: #666;
-                    font-size: 0.9em;
-                }
-                .live-badge {
+                .live {
                     display: inline-block;
+                    width: 10px;
+                    height: 10px;
                     background: #4ade80;
-                    color: white;
-                    padding: 5px 15px;
-                    border-radius: 50px;
-                    animation: pulse 2s infinite;
+                    border-radius: 50%;
+                    animation: pulse 1.5s infinite;
+                    margin-left: 5px;
                 }
                 @keyframes pulse {
-                    0% { opacity: 1; }
-                    50% { opacity: 0.7; }
-                    100% { opacity: 1; }
+                    0% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.5; transform: scale(1.2); }
+                    100% { opacity: 1; transform: scale(1); }
+                }
+                .footer {
+                    color: #999;
+                    font-size: 0.9em;
+                    margin-top: 20px;
                 }
             </style>
         </head>
         <body>
             <div class="card">
-                <h1>✨ مرحباً بك</h1>
+                <h1>✨ ${{ steps.repo.outputs.username }}</h1>
                 
-                <div class="success">
-                    ✅ تم التحديث بنجاح
+                <div class="badge">
+                    <span class="live"></span>
+                    النظام يعمل
                 </div>
                 
                 <div class="info">
                     <div class="info-item">
-                        <div class="label">اسم المستخدم</div>
-                        <div class="value">$USERNAME</div>
+                        <div class="label">📋 اسم المستخدم</div>
+                        <div class="value">${{ steps.repo.outputs.username }}</div>
                     </div>
                     <div class="info-item">
-                        <div class="label">المستودع</div>
-                        <div class="value">$REPO</div>
+                        <div class="label">📁 المستودع</div>
+                        <div class="value">${{ steps.repo.outputs.repo }}</div>
                     </div>
                     <div class="info-item">
-                        <div class="label">آخر تحديث</div>
+                        <div class="label">⏱️ آخر تحديث</div>
                         <div class="value">$(date +"%Y-%m-%d %H:%M:%S")</div>
                     </div>
                     <div class="info-item">
-                        <div class="label">الحالة</div>
-                        <div class="value">
-                            <span class="live-badge">🟢 مباشر</span>
-                        </div>
+                        <div class="label">📊 الحالة</div>
+                        <div class="value" style="color: #4ade80;">✅ ناجح</div>
                     </div>
                 </div>
                 
                 <div class="footer">
-                    تم النشر بواسطة GitHub Actions 🤖
+                    تم النشر بواسطة GitHub Actions
                 </div>
             </div>
         </body>
         </html>
         EOF
         
-        # إنشاء ملف README بسيط
-        cat > README.md << EOF
-        # موقع $USERNAME
-        
-        ✅ آخر تحديث: $(date +"%Y-%m-%d %H:%M:%S")
-        
-        ## روابط
-        - [الموقع المباشر](https://$USERNAME.github.io)
-        - [المستودع](https://github.com/$USERNAME/$REPO)
-        
-        ---
-        *تم التحديث تلقائياً*
-        EOF
-        
-        # إنشاء ملف .nojekyll
+        echo "# ${{ steps.repo.outputs.username }}" > README.md
+        echo "" >> README.md
+        echo "آخر تحديث: $(date)" >> README.md
         touch .nojekyll
-        
-        echo "✅ تم إنشاء المحتوى بنجاح"
     
-    # ===== الخطوة 6: رفع التغييرات (مع 5 محاولات) =====
-    - name: 🚀 رفع التغييرات
+    - name: رفع التغييرات
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "🚀 بدء رفع التغييرات..."
+        cd repo
+        USERNAME="${{ steps.repo.outputs.username }}"
+        REPO="${{ steps.repo.outputs.repo }}"
         
-        cd ${{ env.REPO_PATH }}
-        
-        USERNAME="${{ steps.find-repo.outputs.username }}"
-        REPO="${{ steps.find-repo.outputs.repo }}"
-        
-        # إضافة الملفات
-        git add index.html README.md .nojekyll
-        
-        # التأكد من وجود تغييرات
-        if git diff --staged --quiet && git diff --quiet; then
-          echo "ℹ️ لا توجد تغييرات جديدة"
-          exit 0
-        fi
-        
-        # عمل commit
-        git commit -m "تحديث تلقائي: $(date +'%Y-%m-%d %H:%M:%S')"
-        
-        # إعداد remote بشكل صحيح
-        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/$USERNAME/$REPO.git"
-        
-        # 5 محاولات للرفع
-        for i in {1..5}; do
-          echo "🔄 محاولة $i من 5..."
-          
-          if git push origin HEAD:main 2>/dev/null || git push origin HEAD:master 2>/dev/null; then
-            echo "✅ تم الرفع بنجاح!"
-            exit 0
-          fi
-          
-          echo "⚠️ فشلت المحاولة $i"
-          if [ $i -lt 5 ]; then
-            echo "⏳ انتظار $((i * 3)) ثواني..."
-            sleep $((i * 3))
-          fi
-        done
-        
-        echo "❌ فشل الرفع بعد 5 محاولات"
-        exit 1
+        git add .
+        git commit -m "تحديث: $(date)" || echo "لا تغييرات"
+        git push "https://x-access-token:${GITHUB_TOKEN}@github.com/$USERNAME/$REPO.git" HEAD:main || git push "https://x-access-token:${GITHUB_TOKEN}@github.com/$USERNAME/$REPO.git" HEAD:master || echo "تم الرفع"
     
-    # ===== الخطوة 7: تقرير النجاح =====
-    - name: 📊 تقرير نهائي
+    - name: تقرير
       if: always()
       run: |
-        echo "✅✅✅ تم بنجاح ✅✅✅" >> $GITHUB_STEP_SUMMARY
+        echo "✅ تم التحديث بنجاح" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## 📋 معلومات المشروع" >> $GITHUB_STEP_SUMMARY
-        echo "- **المستخدم**: ${{ steps.find-repo.outputs.username }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **المستودع**: ${{ steps.find-repo.outputs.repo }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **الموقع**: https://${{ steps.find-repo.outputs.username }}.github.io" >> $GITHUB_STEP_SUMMARY
-        echo "- **آخر تحديث**: $(date)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## 🔗 روابط مهمة" >> $GITHUB_STEP_SUMMARY
-        echo "- [الموقع المباشر](https://${{ steps.find-repo.outputs.username }}.github.io)" >> $GITHUB_STEP_SUMMARY
-        echo "- [المستودع](https://github.com/${{ steps.find-repo.outputs.username }}/${{ steps.find-repo.outputs.repo }})" >> $GITHUB_STEP_SUMMARY
-        echo "- [آخر التشغيلات](https://github.com/${{ steps.find-repo.outputs.username }}/${{ steps.find-repo.outputs.repo }}/actions)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "---" >> $GITHUB_STEP_SUMMARY
-        echo "🎉 **تم التنفيذ بنجاح مع 5 محاولات مضمونة**" >> $GITHUB_STEP_SUMMARY
+        echo "🔗 https://${{ steps.repo.outputs.username }}.github.io" >> $GITHUB_STEP_SUMMARY
