@@ -1,55 +1,30 @@
-const crypto = require('crypto');
-const { Postgres } = require('n8n-nodes-base').Postgres.node;
-
-// استعلام لجلب المقالات المنشورة خلال آخر 30 يومًا
-const query = `
-  SELECT url_hash FROM tech_news.articles 
-  WHERE created_at > NOW() - INTERVAL '30 days'
-`;
-
-const pg = new Postgres();
-const existingArticles = await pg.execute({
-  connection: $credentials.postgres,
-  query: query
-});
-
-const existingHashes = new Set(existingArticles.map(item => item.url_hash));
-
-// معالجة المقالات الواردة
-const processedItems = [];
-const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-items.forEach(item => {
-  // استخراج البيانات
-  const title = item.json.title;
-  const link = item.json.link || item.json.url;
-  const pubDate = new Date(item.json.pubDate || item.json.published || item.json.isoDate);
-  
-  // إنشاء hash فريد
-  const hash = crypto.createHash('sha256').update(link).digest('hex');
-  
-  // التحقق من التكرار والتاريخ
-  if (!existingHashes.has(hash) && pubDate > oneDayAgo) {
-    processedItems.push({
-      json: {
-        ...item.json,
-        url_hash: hash,
-        processed_date: new Date().toISOString(),
-        title: title,
-        link: link,
-        published: pubDate.toISOString(),
-        source: extractSource(item.json)
-      }
-    });
+// توحيد بنية البيانات لجميع المصادر
+return items.map(item => ({
+  json: {
+    title: item.json.title || item.json.headline || '',
+    link: item.json.link || item.json.url || '',
+    source: item.json.source || 'Tech News',
+    published: item.json.published || item.json.pubDate || item.json.isoDate,
+    description: cleanHtml(item.json.description || item.json.summary || ''),
+    content: item.json.content || item.json.description || '',
+    image: extractImage(item.json),
+    author: item.json.author || item.json.creator || '',
+    categories: item.json.categories || []
   }
-});
+}));
 
-function extractSource(item) {
-  if (item.source) return item.source;
-  if (item.source_name) return item.source_name;
-  if (item.rss && item.rss.channel && item.rss.channel.title) 
-    return item.rss.channel.title;
-  return 'Unknown Source';
+function cleanHtml(text) {
+  if (!text) return '';
+  return String(text).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-return processedItems;
+function extractImage(item) {
+  if (item.image) return item.image;
+  if (item.enclosure && item.enclosure.url) return item.enclosure.url;
+  if (item['media:content'] && item['media:content'].url) return item['media:content'].url;
+  if (item.description) {
+    const imgMatch = item.description.match(/<img[^>]+src="([^">]+)"/);
+    if (imgMatch) return imgMatch[1];
+  }
+  return '';
+}
