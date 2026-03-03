@@ -1,0 +1,46 @@
+name: تحديث الأخبار تلقائياً
+
+on:
+  schedule:
+    # تشغيل كل ساعة (يمكنك تعديل التوقيت)
+    - cron: '0 * * * *'
+  workflow_dispatch: # للتشغيل اليدوي
+
+jobs:
+  update-news:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: جلب الكود من المستودع
+      uses: actions/checkout@v3
+      
+    - name: تثبيت Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: تثبيت الاعتماديات
+      run: npm ci
+      
+    - name: تشغيل سكريبت تحديث الأخبار
+      run: node server.js
+      
+    - name: التحقق من وجود تغييرات في cache.json
+      id: check_changes
+      run: |
+        if git diff --quiet cache.json; then
+          echo "لا توجد تغييرات"
+          echo "changed=false" >> $GITHUB_OUTPUT
+        else
+          echo "تم تحديث cache.json"
+          echo "changed=true" >> $GITHUB_OUTPUT
+        fi
+      
+    - name: رفع التغييرات إلى GitHub
+      if: steps.check_changes.outputs.changed == 'true'
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add cache.json
+        git commit -m "تحديث تلقائي للأخبار - $(date +'%Y-%m-%d %H:%M:%S')"
+        git push
