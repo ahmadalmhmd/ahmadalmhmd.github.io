@@ -1,201 +1,55 @@
-const express = require('express');
-const fetch = require('node-fetch');
-const Parser = require('rss-parser');
-const fs = require('fs');
-const path = require('path');
-const cors = require('cors');
+const crypto = require('crypto');
+const { Postgres } = require('n8n-nodes-base').Postgres.node;
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-// serve static UI files from /public
-app.use(express.static(path.join(__dirname, 'public')));
+// استعلام لجلب المقالات المنشورة خلال آخر 30 يومًا
+const query = `
+  SELECT url_hash FROM tech_news.articles 
+  WHERE created_at > NOW() - INTERVAL '30 days'
+`;
 
-const PORT = process.env.PORT || 3000;
-const FEEDS_FILE = path.join(__dirname, 'feeds.json');
-
-const parser = new Parser();
-const CACHE_FILE = path.join(__dirname, 'cache.json');
-
-function saveCache(obj) {
-    try {
-        fs.writeFileSync(CACHE_FILE, JSON.stringify(obj, null, 2), 'utf8');
-    } catch (err) {
-        console.error('Failed to write cache', err);
-    }
-}
-
-function loadCache() {
-    try {
-        if (!fs.existsSync(CACHE_FILE)) return null;
-        const raw = fs.readFileSync(CACHE_FILE, 'utf8');
-        return JSON.parse(raw);
-    } catch (err) {
-        console.error('Failed to read cache', err);
-        return null;
-    }
-}
-
-async function loadFeeds() {
-    try {
-        if (!fs.existsSync(FEEDS_FILE)) {
-            // No feeds.json provided — assume n8n will push items to /feeds
-            return [];
-        }
-        const raw = fs.readFileSync(FEEDS_FILE, 'utf8');
-        return JSON.parse(raw);
-    } catch (err) {
-        console.error('Error reading feeds.json', err);
-        return [];
-    }
-}
-
-function withinLast24Hours(date) {
-    const itemDate = new Date(date);
-    const now = new Date();
-    const diff = now - itemDate;
-    return diff >= 0 && diff <= 24 * 60 * 60 * 1000;
-}
-
-app.get('/feeds', async (req, res) => {
-    // Return cached data pushed by n8n (n8n handles summarization)
-    const cache = loadCache();
-    if (cache && Array.isArray(cache.items) && cache.items.length) {
-        return res.json({
-            fetchedAt: cache.fetchedAt || new Date().toISOString(),
-            count: cache.items.length,
-            items: cache.items
-        });
-    }
-
-    // No cache yet — return empty
-    res.json({ fetchedAt: new Date().toISOString(), count: 0, items: [], message: 'No items cached yet. POST items from n8n to /feeds' });
+const pg = new Postgres();
+const existingArticles = await pg.execute({
+  connection: $credentials.postgres,
+  query: query
 });
 
-// Accept pushed items from n8n (batch or single item). The body can be:
-// { items: [...] } or an array of items or a single item object. We APPEND to cache.json
-app.post('/push', (req, res) => {
-    let body = req.body;
-    console.log('POST /push received:', JSON.stringify(body, null, 2));
+const existingHashes = new Set(existingArticles.map(item => item.url_hash));
 
-    if (!body) return res.status(400).json({ error: 'Empty body' });
-    let items = null;
+// معالجة المقالات الواردة
+const processedItems = [];
+const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    // Tolerate many n8n output shapes
-    if (Array.isArray(body)) items = body;
-    else if (Array.isArray(body.items)) items = body.items;
-    else if (Array.isArray(body.data)) items = body.data;
-    else if (body.json && Array.isArray(body.json)) items = body.json;
-    else if (typeof body === 'object' && (body.title || body.link || body.output)) {
-        // Single item or n8n node output with 'output' field
-        items = [body];
-    }
-
-    if (!items || items.length === 0) {
-        console.warn('No items found in body');
-        return res.status(400).json({ error: 'No items array found in body. Send { items: [...] } or an array.', received: body });
-    }
-
-    // Basic normalization: ensure pubDate is ISO string
-    const newItems = items.map(it => ({
-        source: it.source || it.feed || it.sourceName || 'n8n',
-        title: it.title || it.output || null,
-        link: it.link || it.url || null,
-        pubDate: it.pubDate || it.isoDate || it.date || new Date().toISOString(),
-        contentSnippet: it.contentSnippet || it.content || it.description || null,
-        summary: it.summary || it.output || null
-    }));
-
-    // APPEND to existing cache instead of replacing
-    const existingCache = loadCache();
-    let allItems = existingCache && existingCache.items ? existingCache.items : [];
-
-    // Add new items and remove duplicates (by link)
-    newItems.forEach(newItem => {
-        const exists = allItems.find(existing => existing.link === newItem.link && existing.title === newItem.title);
-        if (!exists) {
-            allItems.push(newItem);
-        }
+items.forEach(item => {
+  // استخراج البيانات
+  const title = item.json.title;
+  const link = item.json.link || item.json.url;
+  const pubDate = new Date(item.json.pubDate || item.json.published || item.json.isoDate);
+  
+  // إنشاء hash فريد
+  const hash = crypto.createHash('sha256').update(link).digest('hex');
+  
+  // التحقق من التكرار والتاريخ
+  if (!existingHashes.has(hash) && pubDate > oneDayAgo) {
+    processedItems.push({
+      json: {
+        ...item.json,
+        url_hash: hash,
+        processed_date: new Date().toISOString(),
+        title: title,
+        link: link,
+        published: pubDate.toISOString(),
+        source: extractSource(item.json)
+      }
     });
-
-    // Sort by pubDate, newest first
-    allItems.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-
-    const payload = { fetchedAt: new Date().toISOString(), items: allItems };
-    saveCache(payload);
-    console.log(`Appended ${newItems.length} new items. Total in cache: ${allItems.length}`);
-    return res.json({ ok: true, saved: newItems.length, total: allItems.length });
+  }
 });
 
-// Alias POST /feeds -> accept pushed items from n8n (some workflows post to /feeds)
-app.post('/feeds', (req, res) => {
-    console.log('POST /feeds received:', JSON.stringify(req.body, null, 2));
+function extractSource(item) {
+  if (item.source) return item.source;
+  if (item.source_name) return item.source_name;
+  if (item.rss && item.rss.channel && item.rss.channel.title) 
+    return item.rss.channel.title;
+  return 'Unknown Source';
+}
 
-    let body = req.body;
-    if (!body) return res.status(400).json({ error: 'Empty body' });
-    let items = null;
-
-    // Tolerate many n8n output shapes
-    if (Array.isArray(body)) items = body;
-    else if (Array.isArray(body.items)) items = body.items;
-    else if (Array.isArray(body.data)) items = body.data;
-    else if (body.json && Array.isArray(body.json)) items = body.json;
-    else if (typeof body === 'object' && (body.title || body.link || body.output)) {
-        items = [body];
-    }
-
-    if (!items || items.length === 0) {
-        console.warn('No items found in body');
-        return res.status(400).json({ error: 'No items array found in body. Send { items: [...] } or an array.', received: body });
-    }
-
-    const newItems = items.map(it => ({
-        source: it.source || it.feed || it.sourceName || 'n8n',
-        title: it.title || it.output || null,
-        link: it.link || it.url || null,
-        pubDate: it.pubDate || it.isoDate || it.date || new Date().toISOString(),
-        contentSnippet: it.contentSnippet || it.content || it.description || null,
-        summary: it.summary || it.output || null
-    }));
-
-    // APPEND to existing cache instead of replacing
-    const existingCache = loadCache();
-    let allItems = existingCache && existingCache.items ? existingCache.items : [];
-
-    // Add new items and remove duplicates (by link)
-    newItems.forEach(newItem => {
-        const exists = allItems.find(existing => existing.link === newItem.link && existing.title === newItem.title);
-        if (!exists) {
-            allItems.push(newItem);
-        }
-    });
-
-    // Sort by pubDate, newest first
-    allItems.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-
-    const payload = { fetchedAt: new Date().toISOString(), items: allItems };
-    saveCache(payload);
-    console.log(`Appended ${newItems.length} new items. Total in cache: ${allItems.length}`);
-    return res.json({ ok: true, saved: newItems.length, total: allItems.length });
-});
-
-// Optional endpoint to clear or refresh cache
-app.post('/clear-cache', (req, res) => {
-    try {
-        if (fs.existsSync(CACHE_FILE)) fs.unlinkSync(CACHE_FILE);
-        return res.json({ ok: true });
-    } catch (err) {
-        return res.status(500).json({ error: err.message });
-    }
-});
-
-app.get('/', (req, res) => {
-    // serve the static index.html if present
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`RSS endpoint listening on http://localhost:${PORT}`);
-    console.log(`Also accessible at: http://192.168.29.41:${PORT}`);
-    console.log(`For n8n in Docker, use: http://host.docker.internal:${PORT}/feeds`);
-});
+return processedItems;
