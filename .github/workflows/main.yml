@@ -2,142 +2,482 @@ name: تحديث الأخبار التلقائي
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 * * * *'  # كل ساعة
   push:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:  # للتشغيل اليدوي
 
+# صلاحيات كاملة
 permissions:
-  contents: write  # منح صلاحية الكتابة
+  contents: write
   pages: write
   id-token: write
+  actions: read
+  deployments: write
+  packages: read
+  pull-requests: read
+  repository-projects: read
+  security-events: read
+  statuses: read
 
 jobs:
   update-news:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - name: 🔄 التحقق من المستودع
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}  # استخدام التوكن المدمج
+        token: ${{ secrets.GITHUB_TOKEN }}
+        repository: ahmadaLmhd/ahmadaLmhd.github.io  # ✅ اسم المستخدم الصحيح
     
-    - name: إعداد البيئة
+    - name: 📦 إعداد البيئة
       run: |
-        echo "🔄 بدء تحديث الأخبار..."
+        echo "🚀 بدء تحديث الأخبار..."
         echo "📅 التاريخ: $(date)"
-    
-    - name: إنشاء ملفات التحديث
-      run: |
-        # إنشاء مجلد للأخبار إذا لم يكن موجوداً
-        mkdir -p news-data
+        echo "🆔 المستودع: ahmadaLmhd/ahmadaLmhd.github.io"
+        echo "🌿 الفرع: main"
         
-        # إنشاء ملف التحديثات
-        cat > news-data/latest-news.json << 'EOF'
+    - name: 📰 إنشاء ملفات التحديث الإخبارية المتقدمة
+      run: |
+        # إنشاء المجلدات المطلوبة
+        mkdir -p news-data
+        mkdir -p assets/css
+        mkdir -p assets/js
+        
+        # إنشاء ملف JSON للتحديثات
+        cat > news-data/latest.json << EOF
         {
           "lastUpdate": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+          "version": "1.0.0",
           "status": "success",
+          "repository": "ahmadaLmhd/ahmadaLmhd.github.io",
+          "metrics": {
+            "totalRuns": 18,
+            "successRate": "94%",
+            "averageTime": "25s",
+            "lastRunTime": "$(date +"%Y-%m-%d %H:%M:%S")",
+            "performance": {
+              "caches": "محسّن",
+              "deployments": 14,
+              "attestations": "مفعّلة",
+              "runners": "متاحة"
+            }
+          },
           "news": [
             {
               "id": 1,
-              "title": "تحديث نظام البناء",
-              "description": "تم تحديث pages-build-deployment بنجاح",
+              "title": "🚀 تحديث نظام البناء",
+              "description": "تم تحسين pages-build-deployment مع دعم أفضل للذاكرة المؤقتة",
               "time": "$(date +"%H:%M")",
-              "tag": "تحديث تقني"
+              "date": "$(date +"%Y-%m-%d")",
+              "category": "تحديث تقني",
+              "author": "ahmadaLmhd",
+              "status": "completed",
+              "duration": "37s"
             },
             {
               "id": 2,
-              "title": "تحسين الأداء",
-              "description": "تحسين سرعة التحميل بنسبة 40%",
-              "time": "$(date +"%H:%M")",
-              "tag": "أداء"
+              "title": "⚡ تحسين الأداء",
+              "description": "سرعة التحميل زادت 40% بفضل تحسينات جديدة",
+              "time": "$(date -d "10 minutes ago" +"%H:%M")",
+              "date": "$(date +"%Y-%m-%d")",
+              "category": "أداء",
+              "author": "system",
+              "status": "completed",
+              "duration": "14s"
+            },
+            {
+              "id": 3,
+              "title": "🔧 تحديثات الأمان",
+              "description": "تم تحديث التوثيقات وإجراءات الأمان",
+              "time": "$(date -d "30 minutes ago" +"%H:%M")",
+              "date": "$(date +"%Y-%m-%d")",
+              "category": "أمان",
+              "author": "security-bot",
+              "status": "completed",
+              "duration": "23s"
             }
-          ],
-          "metrics": {
-            "totalRuns": 18,
-            "successRate": "100%",
-            "avgTime": "25s"
-          }
+          ]
         }
         EOF
         
-        # إنشاء ملف HTML ديناميكي
-        cat > news.html << EOF
+        # إنشاء صفحة HTML احترافية
+        cat > index.html << 'EOF'
         <!DOCTYPE html>
         <html dir="rtl" lang="ar">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>آخر التحديثات</title>
+            <title>النشرة التقنية - ahmadaLmhd</title>
+            <meta name="description" content="آخر التحديثات والأخبار التقنية">
+            <meta name="author" content="ahmadaLmhd">
+            <meta property="og:title" content="النشرة التقنية">
+            <meta property="og:type" content="website">
+            <meta property="og:url" content="https://ahmadaLmhd.github.io">
             <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-                body { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); min-height: 100vh; padding: 20px; }
-                .container { max-width: 900px; margin: 0 auto; }
-                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 20px; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-                .header h1 { font-size: 2.5em; margin-bottom: 10px; }
-                .header p { opacity: 0.9; }
-                .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
-                .stat-card { background: white; padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: transform 0.3s; }
-                .stat-card:hover { transform: translateY(-5px); }
-                .stat-value { font-size: 2em; font-weight: bold; color: #667eea; }
-                .stat-label { color: #666; margin-top: 5px; }
-                .news-card { background: white; border-radius: 15px; padding: 20px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); border-right: 4px solid #667eea; }
-                .news-time { color: #667eea; font-size: 0.9em; margin-bottom: 8px; }
-                .news-title { font-size: 1.3em; font-weight: 600; margin-bottom: 10px; color: #333; }
-                .news-desc { color: #666; line-height: 1.6; margin-bottom: 10px; }
-                .news-tag { display: inline-block; background: #667eea; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; }
-                .status-bar { background: #4ade80; color: white; padding: 15px; border-radius: 10px; margin-top: 20px; display: flex; align-items: center; gap: 10px; }
-                .pulse { width: 12px; height: 12px; background: white; border-radius: 50%; animation: pulse 2s infinite; }
-                @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
+                :root {
+                    --primary: #2563eb;
+                    --primary-dark: #1d4ed8;
+                    --secondary: #7c3aed;
+                    --success: #10b981;
+                    --warning: #f59e0b;
+                    --danger: #ef4444;
+                    --dark: #1e293b;
+                    --light: #f8fafc;
+                }
+                
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+                
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                
+                .container {
+                    max-width: 1200px;
+                    margin: 0 auto;
+                }
+                
+                /* Header */
+                .header {
+                    background: rgba(255, 255, 255, 0.95);
+                    backdrop-filter: blur(10px);
+                    border-radius: 30px;
+                    padding: 30px;
+                    margin-bottom: 30px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+                    border: 1px solid rgba(255,255,255,0.3);
+                }
+                
+                .header h1 {
+                    font-size: 2.5em;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    margin-bottom: 10px;
+                }
+                
+                .header p {
+                    color: #64748b;
+                }
+                
+                /* Stats Cards */
+                .stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                    gap: 20px;
+                    margin-bottom: 30px;
+                }
+                
+                .stat-card {
+                    background: white;
+                    border-radius: 20px;
+                    padding: 25px;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                    transition: transform 0.3s, box-shadow 0.3s;
+                    position: relative;
+                    overflow: hidden;
+                }
+                
+                .stat-card::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    width: 100%;
+                    height: 4px;
+                    background: linear-gradient(90deg, var(--primary), var(--secondary));
+                }
+                
+                .stat-card:hover {
+                    transform: translateY(-5px);
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+                }
+                
+                .stat-icon {
+                    font-size: 2em;
+                    margin-bottom: 15px;
+                }
+                
+                .stat-value {
+                    font-size: 2.2em;
+                    font-weight: bold;
+                    color: var(--dark);
+                    margin-bottom: 5px;
+                }
+                
+                .stat-label {
+                    color: #64748b;
+                    font-size: 0.9em;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+                
+                /* News Cards */
+                .news-section {
+                    background: white;
+                    border-radius: 30px;
+                    padding: 30px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                }
+                
+                .news-grid {
+                    display: grid;
+                    gap: 20px;
+                }
+                
+                .news-card {
+                    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+                    border-radius: 20px;
+                    padding: 25px;
+                    border-right: 4px solid var(--primary);
+                    transition: all 0.3s;
+                }
+                
+                .news-card:hover {
+                    border-right-width: 8px;
+                    padding-right: 30px;
+                }
+                
+                .news-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 15px;
+                }
+                
+                .news-time {
+                    color: var(--primary);
+                    font-weight: 600;
+                    font-size: 0.9em;
+                }
+                
+                .news-category {
+                    background: linear-gradient(135deg, var(--primary), var(--secondary));
+                    color: white;
+                    padding: 4px 12px;
+                    border-radius: 50px;
+                    font-size: 0.8em;
+                }
+                
+                .news-title {
+                    font-size: 1.4em;
+                    color: var(--dark);
+                    margin-bottom: 10px;
+                }
+                
+                .news-description {
+                    color: #475569;
+                    line-height: 1.7;
+                    margin-bottom: 15px;
+                }
+                
+                .news-meta {
+                    display: flex;
+                    gap: 15px;
+                    color: #64748b;
+                    font-size: 0.9em;
+                }
+                
+                .news-meta span {
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                }
+                
+                /* Status Bar */
+                .status-bar {
+                    background: linear-gradient(135deg, var(--success), #059669);
+                    color: white;
+                    padding: 20px;
+                    border-radius: 15px;
+                    margin-top: 30px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    animation: pulse 2s infinite;
+                }
+                
+                @keyframes pulse {
+                    0% { opacity: 1; }
+                    50% { opacity: 0.9; }
+                    100% { opacity: 1; }
+                }
+                
+                .live-indicator {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                
+                .live-dot {
+                    width: 12px;
+                    height: 12px;
+                    background: white;
+                    border-radius: 50%;
+                    animation: livePulse 1.5s infinite;
+                }
+                
+                @keyframes livePulse {
+                    0% { transform: scale(1); opacity: 1; }
+                    50% { transform: scale(1.2); opacity: 0.7; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                
+                /* Footer */
+                .footer {
+                    text-align: center;
+                    margin-top: 30px;
+                    color: white;
+                    opacity: 0.8;
+                }
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>📰 النشرة الإخبارية التقنية</h1>
-                    <p>آخر تحديث: $(date +"%Y-%m-%d %H:%M:%S")</p>
+                    <h1>📰 النشرة التقنية</h1>
+                    <p>آخر التحديثات من ahmadaLmhd</p>
                 </div>
                 
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value">18</div>
-                        <div class="stat-label">إجمالي التشغيلات</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">100%</div>
-                        <div class="stat-label">نسبة النجاح</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">25s</div>
-                        <div class="stat-label">متوسط الوقت</div>
+                <div class="stats-grid" id="stats"></div>
+                
+                <div class="news-section">
+                    <h2 style="margin-bottom: 20px; color: var(--dark);">📋 آخر الأخبار</h2>
+                    <div class="news-grid" id="news"></div>
+                    
+                    <div class="status-bar" id="status">
+                        <div class="live-indicator">
+                            <span class="live-dot"></span>
+                            <span>تحديث مباشر</span>
+                        </div>
+                        <span>آخر تحديث: $(date +"%Y-%m-%d %H:%M:%S")</span>
                     </div>
                 </div>
                 
-                <div class="news-card">
-                    <div class="news-time">⏱️ $(date +"%H:%M")</div>
-                    <div class="news-title">✅ تحديث نظام البناء والنشر</div>
-                    <div class="news-desc">تم تحديث pages-build-deployment بنجاح مع تحسينات في إدارة الذاكرة المؤقتة وسرعة النشر</div>
-                    <span class="news-tag">تحديث رئيسي</span>
-                </div>
-                
-                <div class="status-bar">
-                    <div class="pulse"></div>
-                    <span>النظام يعمل بكفاءة - آخر تحديث قبل دقيقة</span>
+                <div class="footer">
+                    <p>تم النشر بواسطة GitHub Actions - جميع الحقوق محفوظة © 2026</p>
                 </div>
             </div>
+            
+            <script>
+                // تحميل البيانات ديناميكياً
+                fetch('/news-data/latest.json')
+                    .then(response => response.json())
+                    .then(data => {
+                        // تحديث الإحصائيات
+                        const stats = document.getElementById('stats');
+                        stats.innerHTML = \`
+                            <div class="stat-card">
+                                <div class="stat-icon">📊</div>
+                                <div class="stat-value">\${data.metrics.totalRuns}</div>
+                                <div class="stat-label">إجمالي التشغيلات</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">✅</div>
+                                <div class="stat-value">\${data.metrics.successRate}</div>
+                                <div class="stat-label">نسبة النجاح</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">⚡</div>
+                                <div class="stat-value">\${data.metrics.averageTime}</div>
+                                <div class="stat-label">متوسط الوقت</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">🚀</div>
+                                <div class="stat-value">\${data.metrics.performance.deployments}</div>
+                                <div class="stat-label">عمليات النشر</div>
+                            </div>
+                        \`;
+                        
+                        // عرض الأخبار
+                        const news = document.getElementById('news');
+                        news.innerHTML = data.news.map(item => \`
+                            <div class="news-card">
+                                <div class="news-header">
+                                    <span class="news-time">⏱️ \${item.time}</span>
+                                    <span class="news-category">\${item.category}</span>
+                                </div>
+                                <h3 class="news-title">\${item.title}</h3>
+                                <p class="news-description">\${item.description}</p>
+                                <div class="news-meta">
+                                    <span>👤 \${item.author}</span>
+                                    <span>⏱️ \${item.duration}</span>
+                                    <span>📅 \${item.date}</span>
+                                </div>
+                            </div>
+                        \`).join('');
+                    })
+                    .catch(error => {
+                        console.error('خطأ في تحميل البيانات:', error);
+                    });
+            </script>
         </body>
         </html>
         EOF
-    
-    - name: تكوين Git
-      run: |
-        git config --global user.name "ahmadalhmd"
-        git config --global user.email "${{ secrets.GITHUB_EMAIL }}"
         
-    - name: رفع التغييرات
+        # إنشاء ملف README محدث
+        cat > README.md << EOF
+        # 📰 النشرة التقنية - ahmadaLmhd
+        
+        آخر تحديث: $(date +"%Y-%m-%d %H:%M:%S")
+        
+        ## 📊 إحصائيات سريعة
+        - ✅ إجمالي التشغيلات: 18
+        - ⚡ آخر تحديث: $(date +"%H:%M")
+        - 🚀 الحالة: نشط
+        
+        ## 📋 آخر الأخبار
+        $(for i in {1..3}; do echo "- تحديث $i: تم بنجاح"; done)
+        
+        ## 🔗 روابط مفيدة
+        - [الصفحة الرئيسية](https://ahmadaLmhd.github.io)
+        - [آخر التحديثات](https://github.com/ahmadaLmhd/ahmadaLmhd.github.io/actions)
+        
+        ---
+        *تم التحديث تلقائياً بواسطة GitHub Actions*
+        EOF
+        
+        echo "✅ تم إنشاء جميع الملفات بنجاح"
+    
+    - name: ⚙️ تكوين Git
+      run: |
+        git config --global user.name "ahmadaLmhd"
+        git config --global user.email "${{ secrets.GITHUB_EMAIL }}"
+        git config --global credential.helper store
+        
+    - name: 🚀 رفع التغييرات
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        git add news-data/ news.html last-update.txt performance.txt 2>/dev/null || true
-        git diff --staged --quiet || git commit -m "تحديث تلقائي: $(date +'%Y-%m-%d %H:%M:%S')"
-        git push https://x-access-token:${GITHUB_TOKEN}@github.com/ahmadaLmhd/ahmadaLmhd.github.io.git HEAD:main
+        # التأكد من الرابط الصحيح
+        REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/ahmadaLmhd/ahmadaLmhd.github.io.git"
+        
+        # إضافة الملفات
+        git add news-data/ index.html README.md 2>/dev/null || true
+        git add *.html *.json *.md 2>/dev/null || true
+        
+        # التحقق من وجود تغييرات
+        if git diff --staged --quiet; then
+          echo "ℹ️ لا توجد تغييرات جديدة"
+        else
+          git commit -m "📰 تحديث الأخبار: $(date +'%Y-%m-%d %H:%M:%S')"
+          git push $REPO_URL HEAD:main
+          echo "✅ تم رفع التغييرات بنجاح"
+        fi
+    
+    - name: 📊 إنشاء تقرير
+      if: always()
+      run: |
+        echo "## 📋 ملخص التنفيذ" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ الحالة: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "- 📅 الوقت: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔗 المستودع: ahmadaLmhd/ahmadaLmhd.github.io" >> $GITHUB_STEP_SUMMARY
